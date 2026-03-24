@@ -3,15 +3,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Finance Signal Studio",
-  description:
-    "Interactive company intelligence dashboard with market signals, connected stocks, and multi-source news.",
+  description: "AI-powered financial intelligence and stock prediction platform using Google Gemini, multi-source news ingestion, sentiment scoring, and workflow visualization.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body>{children}</body>

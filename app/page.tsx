@@ -1,5 +1,5 @@
-import { DashboardShell } from "@/components/dashboard-shell";
+import { IntelligenceDashboard } from "@/frontend/dashboard/intelligence-dashboard";
 
 export default function HomePage() {
-  return <DashboardShell />;
+  return <IntelligenceDashboard />;
 }
