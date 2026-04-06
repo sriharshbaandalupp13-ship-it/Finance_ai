@@ -118,7 +118,13 @@ export async function buildCompanyIntelligence(symbol: string): Promise<Intellig
     generatedAt: new Date().toISOString(),
   };
 
-  await Promise.all([persistSignalItems(processedItems), persistSnapshot(primary)]);
+  await Promise.allSettled([persistSignalItems(processedItems), persistSnapshot(primary)]).then((results) => {
+    results.forEach((result) => {
+      if (result.status === "rejected") {
+        console.error("Optional persistence failed:", result.reason);
+      }
+    });
+  });
 
   const relatedSignals = await Promise.all(relatedCompanies.slice(0, 4).map(fetchSignalsForCompany));
   const allSignals = [processedItems, ...relatedSignals].flat();
@@ -132,7 +138,7 @@ export async function buildCompanyIntelligence(symbol: string): Promise<Intellig
     workflow: [
       { id: "news", label: "News", value: `${processedItems.length} items` },
       { id: "sentiment", label: "Sentiment", value: `${sentiment.score}/100` },
-      { id: "prediction", label: "Prediction", value: `${prediction.direction} • ${Math.round(prediction.confidence * 100)}%` },
+      { id: "prediction", label: "Prediction", value: `${prediction.direction} | ${Math.round(prediction.confidence * 100)}%` },
       { id: "relations", label: "Related Companies", value: `${relatedCompanies.length} links` },
     ],
   };
@@ -143,3 +149,4 @@ export async function buildTrendingSnapshot() {
   const signals = (await Promise.all(companies.map(fetchSignalsForCompany))).flat();
   return buildTrending(signals);
 }
+

@@ -115,7 +115,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{primary?.whyMoving ?? "Fetching AI-generated explanation of the latest price move."}</p>
               </div>
               <div className={`rounded-full border px-4 py-2 text-sm font-semibold ${primary?.prediction.direction === "UP" ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : primary?.prediction.direction === "DOWN" ? "border-rose-300/30 bg-rose-300/10 text-rose-200" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>
-                {primary ? `${primary.prediction.direction} • ${Math.round(primary.prediction.confidence * 100)}% confidence` : "Waiting"}
+                {primary ? `${primary.prediction.direction} | ${Math.round(primary.prediction.confidence * 100)}% confidence` : "Waiting"}
               </div>
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-4">

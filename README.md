@@ -71,3 +71,24 @@ If you want persistence:
 - Gemini is the primary AI engine. If the API key is missing or parsing fails, the app falls back to heuristics.
 - News API free usage is suitable for development and testing; review their production restrictions before going live.
 - Reddit is fetched from public JSON endpoints for `r/stocks`, `r/investing`, and `r/wallstreetbets`.
+
+## Validation
+
+```bash
+npm run lint
+npx tsc --noEmit --incremental false
+```
+
+## Deployment Procedure
+
+1. Copy `.env.example` to `.env.local`.
+2. Fill in the API keys you want to enable.
+3. If you want persistence, create a Supabase project and run `data/schema.sql`.
+4. Run `npm run lint`.
+5. Run `npx tsc --noEmit --incremental false`.
+6. Run `npm run build`.
+7. Push the repo to GitHub.
+8. Import the repo into Vercel as a Next.js project.
+9. Add the same environment variables in Vercel.
+10. Deploy.
+11. Verify `/`, `/api/trending`, and `/api/intelligence/NVDA`.

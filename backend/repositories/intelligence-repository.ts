@@ -5,7 +5,7 @@ export async function persistSignalItems(items: ProcessedSignalItem[]) {
   const supabase = createSupabaseAdmin();
   if (!supabase || !items.length) return;
 
-  await supabase.from("signal_items").upsert(
+  const { error } = await supabase.from("signal_items").upsert(
     items.map((item) => ({
       id: item.id,
       title: item.title,
@@ -22,13 +22,17 @@ export async function persistSignalItems(items: ProcessedSignalItem[]) {
       confidence: item.confidence,
     })),
   );
+
+  if (error) {
+    throw new Error(`Failed to persist signal items: ${error.message}`);
+  }
 }
 
 export async function persistSnapshot(snapshot: CompanyIntelligence) {
   const supabase = createSupabaseAdmin();
   if (!supabase) return;
 
-  await supabase.from("company_snapshots").insert({
+  const { error } = await supabase.from("company_snapshots").insert({
     symbol: snapshot.company.symbol,
     sentiment_score: snapshot.sentiment.score,
     sentiment_trend: snapshot.sentiment.trend,
@@ -39,4 +43,8 @@ export async function persistSnapshot(snapshot: CompanyIntelligence) {
     generated_at: snapshot.generatedAt,
     payload: snapshot,
   });
+
+  if (error) {
+    throw new Error(`Failed to persist company snapshot: ${error.message}`);
+  }
 }
