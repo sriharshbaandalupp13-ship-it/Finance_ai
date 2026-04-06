@@ -132,7 +132,7 @@ export async function buildCompanyIntelligence(symbol: string): Promise<Intellig
     workflow: [
       { id: "news", label: "News", value: `${processedItems.length} items` },
       { id: "sentiment", label: "Sentiment", value: `${sentiment.score}/100` },
-      { id: "prediction", label: "Prediction", value: `${prediction.direction} â€¢ ${Math.round(prediction.confidence * 100)}%` },
+      { id: "prediction", label: "Prediction", value: `${prediction.direction} • ${Math.round(prediction.confidence * 100)}%` },
       { id: "relations", label: "Related Companies", value: `${relatedCompanies.length} links` },
     ],
   };
