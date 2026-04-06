@@ -37,7 +37,7 @@ Copy `.env.example` to `.env.local` and fill in the values you want to enable.
 ALPHA_VANTAGE_API_KEY=
 NEWS_API_KEY=
 GEMINI_API_KEY=
-NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
@@ -57,7 +57,7 @@ If you want persistence:
 1. Create a Supabase project.
 2. Open the SQL editor.
 3. Run the schema in `data/schema.sql`.
-4. Add `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`.
+4. Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`.
 
 ## Vercel Deployment
 
@@ -71,6 +71,7 @@ If you want persistence:
 - Gemini is the primary AI engine. If the API key is missing or parsing fails, the app falls back to heuristics.
 - News API free usage is suitable for development and testing; review their production restrictions before going live.
 - Reddit is fetched from public JSON endpoints for `r/stocks`, `r/investing`, and `r/wallstreetbets`.
+- Use `SUPABASE_URL` for the server-side admin client. `NEXT_PUBLIC_SUPABASE_URL` remains supported only as a fallback.
 
 ## Validation
 
@@ -89,6 +90,6 @@ npx tsc --noEmit --incremental false
 6. Run `npm run build`.
 7. Push the repo to GitHub.
 8. Import the repo into Vercel as a Next.js project.
-9. Add the same environment variables in Vercel.
+9. Add the same environment variables in Vercel. Use `SUPABASE_URL` for the server-side admin client; `NEXT_PUBLIC_SUPABASE_URL` is only a fallback.
 10. Deploy.
 11. Verify `/`, `/api/trending`, and `/api/intelligence/NVDA`.

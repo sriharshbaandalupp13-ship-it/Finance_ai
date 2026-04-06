@@ -1,16 +1,10 @@
 "use client";
 
 import { Background, Controls, MiniMap, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import type { CompanyRelation } from "@/data/contracts";
 import "@xyflow/react/dist/style.css";
 
 type WorkflowItem = { id: string; label: string; value: string };
-
-type Relation = {
-  sourceSymbol: string;
-  targetSymbol: string;
-  relation: string;
-  strength: number;
-};
 
 function buildWorkflowNodes(items: WorkflowItem[]): Node[] {
   return items.map((item, index) => ({
@@ -39,7 +33,15 @@ function buildWorkflowEdges(items: WorkflowItem[]): Edge[] {
   }));
 }
 
-function buildRelationNodes(symbol: string, relations: Relation[]): Node[] {
+function getRelationPeerSymbol(symbol: string, relation: CompanyRelation): string {
+  return relation.targetSymbol === symbol ? relation.sourceSymbol : relation.targetSymbol;
+}
+
+function getRelationNodeId(symbol: string, relation: CompanyRelation, index: number): string {
+  return `${symbol}-${getRelationPeerSymbol(symbol, relation)}-${relation.relation}-${index}`;
+}
+
+function buildRelationNodes(symbol: string, relations: CompanyRelation[]): Node[] {
   const center: Node = {
     id: symbol,
     position: { x: 300, y: 180 },
@@ -57,13 +59,15 @@ function buildRelationNodes(symbol: string, relations: Relation[]): Node[] {
     const angle = (Math.PI * 2 * index) / Math.max(relations.length, 1);
     const x = 300 + Math.cos(angle) * 220;
     const y = 180 + Math.sin(angle) * 140;
+    const peerSymbol = getRelationPeerSymbol(symbol, relation);
+
     return {
-      id: relation.targetSymbol === symbol ? `${relation.targetSymbol}-${index}` : relation.targetSymbol,
+      id: getRelationNodeId(symbol, relation, index),
       position: { x, y },
       data: {
         label: (
           <div className="w-[170px] rounded-2xl border border-white/10 bg-slate-950/85 p-3 text-left shadow-lg shadow-slate-950/40">
-            <div className="text-sm font-semibold text-slate-100">{relation.targetSymbol === symbol ? relation.sourceSymbol : relation.targetSymbol}</div>
+            <div className="text-sm font-semibold text-slate-100">{peerSymbol}</div>
             <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-cyan-300">{relation.relation}</div>
             <div className="mt-2 text-xs text-slate-400">Strength {Math.round(relation.strength * 100)}%</div>
           </div>
@@ -76,11 +80,11 @@ function buildRelationNodes(symbol: string, relations: Relation[]): Node[] {
   return [center, ...satellites];
 }
 
-function buildRelationEdges(symbol: string, relations: Relation[]): Edge[] {
+function buildRelationEdges(symbol: string, relations: CompanyRelation[]): Edge[] {
   return relations.map((relation, index) => ({
     id: `${relation.sourceSymbol}-${relation.targetSymbol}-${index}`,
     source: symbol,
-    target: relation.targetSymbol === symbol ? `${relation.targetSymbol}-${index}` : relation.targetSymbol,
+    target: getRelationNodeId(symbol, relation, index),
     label: relation.relation,
     animated: relation.strength > 0.75,
     style: { stroke: relation.strength > 0.75 ? "#34d399" : "#38bdf8" },
@@ -88,7 +92,7 @@ function buildRelationEdges(symbol: string, relations: Relation[]): Edge[] {
   }));
 }
 
-export function WorkflowCanvas({ workflow, symbol, relations }: { workflow: WorkflowItem[]; symbol: string; relations: Relation[]; }) {
+export function WorkflowCanvas({ workflow, symbol, relations }: { workflow: WorkflowItem[]; symbol: string; relations: CompanyRelation[]; }) {
   const workflowNodes = buildWorkflowNodes(workflow);
   const workflowEdges = buildWorkflowEdges(workflow);
   const relationNodes = buildRelationNodes(symbol, relations);
