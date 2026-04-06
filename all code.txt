@@ -11,7 +11,7 @@ ALPHA_VANTAGE_API_KEY=
 
 # News
 NEWS_API_KEY=
-gg
+
 # AI engines
 GEMINI_API_KEY=
 GROQ_API_KEY=
@@ -53,6 +53,107 @@ node_modules
 .vercel
 .env.local
 dist
+
+
+========================================================================================================================
+FILE: README.md
+========================================================================================================================
+
+# Finance Signal Studio
+
+Finance Signal Studio is a full-stack AI-powered financial intelligence and stock prediction platform built with Next.js, Tailwind CSS, React Flow, Google Gemini, Alpha Vantage, Reddit, RSS feeds, and optional Supabase persistence.
+
+## Features
+
+- Multi-source ingestion from RSS feeds, News API, and Reddit
+- Gemini-driven processing for summary, sentiment, event extraction, impact, and explanation
+- Dynamic market sentiment engine with mention volume and trend scoring
+- Stock prediction engine with confidence and AI explanation
+- React Flow workflow canvas from News to Prediction to Related Companies
+- Related-company graph for competitors, suppliers, partners, and chain reactions
+- Stock dashboard with price history, volume, SMA, and momentum
+- Trending companies and alert panels for sudden sentiment spikes
+- Optional Supabase persistence for signals and generated snapshots
+
+## Folder Structure
+
+- `app/` Next.js routes and API endpoints
+- `frontend/` dashboard and workflow UI modules
+- `backend/` orchestration, engines, and repositories
+- `components/` reusable presentation components
+- `services/` external integrations and AI/market connectors
+- `utils/` formatting and helper utilities
+- `data/` contracts, watchlist seed data, and SQL schema
+
+## API Endpoints
+
+- `GET /api/intelligence/[symbol]` returns the full intelligence payload for one company
+- `GET /api/trending` returns trending companies based on current buzz scoring
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in the values you want to enable.
+
+```env
+ALPHA_VANTAGE_API_KEY=
+NEWS_API_KEY=
+GEMINI_API_KEY=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Supabase Setup
+
+If you want persistence:
+
+1. Create a Supabase project.
+2. Open the SQL editor.
+3. Run the schema in `data/schema.sql`.
+4. Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`.
+
+## Vercel Deployment
+
+1. Push the repo to GitHub.
+2. Import the repo into Vercel.
+3. Add the same environment variables in Vercel Project Settings.
+4. Deploy.
+
+## Notes
+
+- Gemini is the primary AI engine. If the API key is missing or parsing fails, the app falls back to heuristics.
+- News API free usage is suitable for development and testing; review their production restrictions before going live.
+- Reddit is fetched from public JSON endpoints for `r/stocks`, `r/investing`, and `r/wallstreetbets`.
+- Use `SUPABASE_URL` for the server-side admin client. `NEXT_PUBLIC_SUPABASE_URL` remains supported only as a fallback.
+
+## Validation
+
+```bash
+npm run lint
+npx tsc --noEmit --incremental false
+```
+
+## Deployment Procedure
+
+1. Copy `.env.example` to `.env.local`.
+2. Fill in the API keys you want to enable.
+3. If you want persistence, create a Supabase project and run `data/schema.sql`.
+4. Run `npm run lint`.
+5. Run `npx tsc --noEmit --incremental false`.
+6. Run `npm run build`.
+7. Push the repo to GitHub.
+8. Import the repo into Vercel as a Next.js project.
+9. Add the same environment variables in Vercel. Use `SUPABASE_URL` for the server-side admin client; `NEXT_PUBLIC_SUPABASE_URL` is only a fallback.
+10. Deploy.
+11. Verify `/`, `/api/trending`, and `/api/intelligence/NVDA`.
 
 
 ========================================================================================================================
@@ -807,31 +908,29 @@ FILE: data/watchlist.ts
 import type { CompanyProfile, CompanyRelation } from "@/data/contracts";
 
 export const WATCHLIST: CompanyProfile[] = [
-  { symbol: "NVDA", name: "NVIDIA", exchange: "NASDAQ", sector: "Semiconductors" },
-  { symbol: "AAPL", name: "Apple", exchange: "NASDAQ", sector: "Consumer Technology" },
-  { symbol: "MSFT", name: "Microsoft", exchange: "NASDAQ", sector: "Software" },
-  { symbol: "TSLA", name: "Tesla", exchange: "NASDAQ", sector: "Automotive" },
-  { symbol: "AMD", name: "AMD", exchange: "NASDAQ", sector: "Semiconductors" },
-  { symbol: "AMZN", name: "Amazon", exchange: "NASDAQ", sector: "Cloud" },
-  { symbol: "GOOGL", name: "Alphabet", exchange: "NASDAQ", sector: "Internet" },
-  { symbol: "META", name: "Meta", exchange: "NASDAQ", sector: "Internet" },
-  { symbol: "TSM", name: "Taiwan Semiconductor", exchange: "NYSE", sector: "Semiconductors" },
-  { symbol: "SMCI", name: "Super Micro Computer", exchange: "NASDAQ", sector: "Servers" }
+  { symbol: "RELIANCE.BSE", name: "Reliance Industries", exchange: "BSE", sector: "Conglomerate" },
+  { symbol: "TCS.BSE", name: "Tata Consultancy Services", exchange: "BSE", sector: "IT Services" },
+  { symbol: "HDFCBANK.BSE", name: "HDFC Bank", exchange: "BSE", sector: "Banking" },
+  { symbol: "INFY.BSE", name: "Infosys", exchange: "BSE", sector: "IT Services" },
+  { symbol: "ICICIBANK.BSE", name: "ICICI Bank", exchange: "BSE", sector: "Banking" },
+  { symbol: "HINDUNILVR.BSE", name: "Hindustan Unilever", exchange: "BSE", sector: "FMCG" },
+  { symbol: "SBIN.BSE", name: "State Bank of India", exchange: "BSE", sector: "Banking" },
+  { symbol: "BHARTIARTL.BSE", name: "Bharti Airtel", exchange: "BSE", sector: "Telecom" },
+  { symbol: "WIPRO.BSE", name: "Wipro", exchange: "BSE", sector: "IT Services" },
+  { symbol: "ADANIENT.BSE", name: "Adani Enterprises", exchange: "BSE", sector: "Conglomerate" },
 ];
 
 export const RELATIONS: CompanyRelation[] = [
-  { sourceSymbol: "NVDA", targetSymbol: "TSM", relation: "manufacturer", rationale: "TSMC manufactures Nvidia chips.", strength: 0.97 },
-  { sourceSymbol: "NVDA", targetSymbol: "SMCI", relation: "partner", rationale: "Supermicro packages Nvidia AI infrastructure.", strength: 0.81 },
-  { sourceSymbol: "NVDA", targetSymbol: "AMD", relation: "competitor", rationale: "Both compete in AI accelerators and data center GPUs.", strength: 0.78 },
-  { sourceSymbol: "NVDA", targetSymbol: "MSFT", relation: "customer", rationale: "Microsoft consumes Nvidia compute for Azure AI capacity.", strength: 0.7 },
-  { sourceSymbol: "AAPL", targetSymbol: "TSM", relation: "manufacturer", rationale: "TSMC fabricates Apple silicon.", strength: 0.95 },
-  { sourceSymbol: "AAPL", targetSymbol: "GOOGL", relation: "competitor", rationale: "Competes across mobile ecosystems and AI surfaces.", strength: 0.66 },
-  { sourceSymbol: "MSFT", targetSymbol: "AMZN", relation: "competitor", rationale: "AWS and Azure compete for cloud and AI workloads.", strength: 0.84 },
-  { sourceSymbol: "MSFT", targetSymbol: "NVDA", relation: "supplier", rationale: "Microsoft relies on Nvidia for AI hardware supply.", strength: 0.85 },
-  { sourceSymbol: "TSLA", targetSymbol: "NVDA", relation: "supplier", rationale: "Compute infrastructure influences autonomy training velocity.", strength: 0.54 },
-  { sourceSymbol: "TSLA", targetSymbol: "AAPL", relation: "competitor", rationale: "Both fight for consumer attention, talent, and AI-device narrative share.", strength: 0.29 },
-  { sourceSymbol: "META", targetSymbol: "MSFT", relation: "competitor", rationale: "Both invest in AI platforms and enterprise productivity tools.", strength: 0.48 },
-  { sourceSymbol: "AMD", targetSymbol: "TSM", relation: "manufacturer", rationale: "TSMC manufactures AMD processors and accelerators.", strength: 0.91 }
+  { sourceSymbol: "RELIANCE.BSE", targetSymbol: "HDFCBANK.BSE", relation: "partner", rationale: "Major banking partner for Reliance retail and Jio operations.", strength: 0.75 },
+  { sourceSymbol: "RELIANCE.BSE", targetSymbol: "BHARTIARTL.BSE", relation: "competitor", rationale: "Jio and Airtel compete directly in telecom sector.", strength: 0.90 },
+  { sourceSymbol: "TCS.BSE", targetSymbol: "INFY.BSE", relation: "competitor", rationale: "Both are top Indian IT services exporters competing for global contracts.", strength: 0.88 },
+  { sourceSymbol: "TCS.BSE", targetSymbol: "WIPRO.BSE", relation: "competitor", rationale: "Compete across enterprise IT, cloud, and outsourcing.", strength: 0.82 },
+  { sourceSymbol: "HDFCBANK.BSE", targetSymbol: "ICICIBANK.BSE", relation: "competitor", rationale: "Top two private sector banks competing for retail and corporate banking.", strength: 0.85 },
+  { sourceSymbol: "HDFCBANK.BSE", targetSymbol: "SBIN.BSE", relation: "competitor", rationale: "Private vs public sector banking competition.", strength: 0.78 },
+  { sourceSymbol: "INFY.BSE", targetSymbol: "WIPRO.BSE", relation: "competitor", rationale: "Both compete in IT services and digital transformation.", strength: 0.80 },
+  { sourceSymbol: "ADANIENT.BSE", targetSymbol: "RELIANCE.BSE", relation: "competitor", rationale: "Compete in energy, infrastructure and retail sectors.", strength: 0.72 },
+  { sourceSymbol: "BHARTIARTL.BSE", targetSymbol: "SBIN.BSE", relation: "partner", rationale: "SBI provides major financing for Airtel expansion.", strength: 0.60 },
+  { sourceSymbol: "ICICIBANK.BSE", targetSymbol: "SBIN.BSE", relation: "competitor", rationale: "Compete across retail banking, loans and deposits.", strength: 0.83 },
 ];
 
 
@@ -848,9 +947,24 @@ import { StockChartCard } from "@/components/stock-chart-card";
 import { WorkflowCanvas } from "@/frontend/workflow/workflow-canvas";
 import { formatCompactNumber, formatCurrency, formatPercent } from "@/utils/format";
 
-const PRESETS = ["NVDA", "AAPL", "MSFT", "TSLA", "AMD"];
+const PRESETS = ["RELIANCE.BSE", "TCS.BSE", "HDFCBANK.BSE", "INFY.BSE", "ICICIBANK.BSE"];
 
-export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbol?: string }) {
+const PRESET_LABELS: Record<string, string> = {
+  "RELIANCE.BSE": "RELIANCE",
+  "TCS.BSE": "TCS",
+  "HDFCBANK.BSE": "HDFC",
+  "INFY.BSE": "INFY",
+  "ICICIBANK.BSE": "ICICI",
+};
+
+function getPredictionLabel(direction: string, confidence: number) {
+  const pct = Math.round(confidence * 20);
+  if (direction === "UP") return `[Bullish] Est. +${pct}% move | ${Math.round(confidence * 100)}% confidence`;
+  if (direction === "DOWN") return `[Bearish] Est. -${pct}% move | ${Math.round(confidence * 100)}% confidence`;
+  return `[Neutral] No strong signal | ${Math.round(confidence * 100)}% confidence`;
+}
+
+export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { initialSymbol?: string }) {
   const [query, setQuery] = useState(initialSymbol);
   const [symbol, setSymbol] = useState(initialSymbol);
   const [data, setData] = useState<IntelligenceResponse | null>(null);
@@ -864,7 +978,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/intelligence/${symbol}`, { signal: controller.signal });
+        const response = await fetch(`/api/intelligence/${encodeURIComponent(symbol)}`, { signal: controller.signal });
         if (!response.ok) throw new Error("Unable to load intelligence feed.");
         const payload = (await response.json()) as IntelligenceResponse;
         setData(payload);
@@ -890,12 +1004,12 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
         <section className="overflow-hidden rounded-[34px] border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/40">
           <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.4em] text-cyan-300">Full-stack AI financial intelligence</p>
+              <p className="text-[11px] uppercase tracking-[0.4em] text-cyan-300">Indian Market AI Intelligence</p>
               <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Multi-source market intelligence with Gemini-driven sentiment, prediction, and chain-reaction analysis.
+                BSE & NSE market intelligence with Gemini-driven sentiment, prediction, and chain-reaction analysis.
               </h1>
               <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-                This platform aggregates RSS feeds, mainstream news, and Reddit sentiment, converts them into structured financial signals, tracks dynamic sentiment scores, predicts stock direction, and maps related-company shockwaves in one workflow-centric interface.
+                Track top Indian companies across IT, Banking, Telecom, FMCG and Conglomerates. Multi-source news aggregation with AI-powered sentiment scoring and stock prediction.
               </p>
             </div>
             <div className="rounded-[30px] border border-white/10 bg-white/5 p-5">
@@ -903,7 +1017,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
                 className="space-y-4"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  setSymbol(query.trim().toUpperCase() || "NVDA");
+                  setSymbol(query.trim().toUpperCase() || "RELIANCE.BSE");
                 }}
               >
                 <div>
@@ -914,9 +1028,11 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
                       value={query}
                       onChange={(event) => setQuery(event.target.value.toUpperCase())}
                       className="flex-1 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none ring-0 placeholder:text-slate-500"
-                      placeholder="NVDA"
+                      placeholder="RELIANCE.BSE"
                     />
-                    <button className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200" type="submit">Run intelligence</button>
+                    <button className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200" type="submit">
+                      Analyse
+                    </button>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -930,7 +1046,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
                         setSymbol(preset);
                       }}
                     >
-                      {preset}
+                      {PRESET_LABELS[preset]}
                     </button>
                   ))}
                 </div>
@@ -938,7 +1054,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <TopMetric label="Mentions" value={primary ? String(primary.sentiment.mentionVolume) : loading ? "..." : "0"} />
                 <TopMetric label="Prediction" value={primary?.prediction.direction ?? (loading ? "..." : "N/A")} />
-                <TopMetric label="Price" value={primary ? formatCurrency(primary.stock.price, primary.stock.currency) : loading ? "..." : "N/A"} />
+                <TopMetric label="Price (INR)" value={primary ? formatCurrency(primary.stock.price, "INR") : loading ? "..." : "N/A"} />
                 <TopMetric label="Volume" value={primary ? formatCompactNumber(primary.stock.volume) : loading ? "..." : "N/A"} />
               </div>
             </div>
@@ -952,30 +1068,43 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.35em] text-cyan-300">Company intelligence</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">{primary ? `${primary.company.name} (${primary.company.symbol})` : loading ? "Loading..." : "No data"}</h2>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  {primary ? `${primary.company.name} (${primary.company.symbol})` : loading ? "Loading..." : "No data"}
+                </h2>
+                <p className="mt-1 text-xs text-slate-400">{primary ? `${primary.company.sector} | ${primary.company.exchange}` : ""}</p>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{primary?.whyMoving ?? "Fetching AI-generated explanation of the latest price move."}</p>
               </div>
-              <div className={`rounded-full border px-4 py-2 text-sm font-semibold ${primary?.prediction.direction === "UP" ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : primary?.prediction.direction === "DOWN" ? "border-rose-300/30 bg-rose-300/10 text-rose-200" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>
-                {primary ? `${primary.prediction.direction} | ${Math.round(primary.prediction.confidence * 100)}% confidence` : "Waiting"}
+              <div className={`rounded-full border px-4 py-2 text-sm font-semibold ${
+                primary?.prediction.direction === "UP"
+                  ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+                  : primary?.prediction.direction === "DOWN"
+                    ? "border-rose-300/30 bg-rose-300/10 text-rose-200"
+                    : "border-amber-300/30 bg-amber-300/10 text-amber-100"
+              }`}>
+                {primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence) : "Waiting"}
               </div>
             </div>
+
             <div className="mt-6 grid gap-4 md:grid-cols-4">
               <FeatureCard label="Sentiment score" value={primary ? `${primary.sentiment.score}/100` : "..."} detail={`Trend ${primary ? primary.sentiment.trend.toFixed(1) : "0"}`} />
-              <FeatureCard label="Day move" value={primary ? formatPercent(primary.stock.changePercent) : "..."} detail={`Price ${primary ? formatCurrency(primary.stock.price, primary.stock.currency) : "..."}`} />
+              <FeatureCard label="Day move" value={primary ? formatPercent(primary.stock.changePercent) : "..."} detail={`Price INR ${primary?.stock.price?.toFixed(2) ?? "..."}`} />
               <FeatureCard label="Event pressure" value={primary ? String(primary.sentiment.highImpactCount) : "..."} detail="High-impact catalysts" />
               <FeatureCard label="Mention heat" value={`${mentionMeter}%`} detail="News and social volume" />
             </div>
+
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {comparison.map((stock) => (
                 <article key={stock.symbol} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="text-sm font-semibold text-white">{stock.symbol}</div>
+                      <div className="text-sm font-semibold text-white">{stock.symbol.replace(".BSE", "")}</div>
                       <div className="text-xs text-slate-400">{stock.name}</div>
                     </div>
-                    <span className={`text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>{formatPercent(stock.changePercent)}</span>
+                    <span className={`text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                      {formatPercent(stock.changePercent)}
+                    </span>
                   </div>
-                  <div className="mt-3 text-lg font-semibold text-white">{formatCurrency(stock.price, stock.currency)}</div>
+                  <div className="mt-3 text-lg font-semibold text-white">INR {stock.price?.toFixed(2) ?? "N/A"}</div>
                   <div className="mt-1 text-xs text-slate-400">Volume {formatCompactNumber(stock.volume)}</div>
                 </article>
               ))}
@@ -1167,19 +1296,6 @@ export function WorkflowCanvas({ workflow, symbol, relations }: { workflow: Work
 
 
 ========================================================================================================================
-FILE: next.config.ts
-========================================================================================================================
-
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  reactStrictMode: true,
-};
-
-export default nextConfig;
-
-
-========================================================================================================================
 FILE: next-env.d.ts
 ========================================================================================================================
 
@@ -1192,44 +1308,16 @@ FILE: next-env.d.ts
 
 
 ========================================================================================================================
-FILE: package.json
+FILE: next.config.ts
 ========================================================================================================================
 
-{
-  "name": "finance-signal-studio",
-  "version": "0.3.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "type-check": "tsc --noEmit --incremental false"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.56.1",
-    "@tailwindcss/postcss": "^4.1.13",
-    "@xyflow/react": "^12.10.1",
-    "clsx": "^2.1.1",
-    "next": "15.5.14",
-    "postcss": "^8.5.6",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "recharts": "^3.2.1",
-    "rss-parser": "^3.13.0",
-    "tailwind-merge": "^2.6.0",
-    "tailwindcss": "^4.1.13",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "eslint": "^8.57.1",
-    "eslint-config-next": "15.5.14",
-    "@types/node": "^22.13.10",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "typescript": "^5.7.3"
-  }
-}
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  reactStrictMode: true,
+};
+
+export default nextConfig;
 
 
 ========================================================================================================================
@@ -8132,6 +8220,47 @@ FILE: package-lock.json
 
 
 ========================================================================================================================
+FILE: package.json
+========================================================================================================================
+
+{
+  "name": "finance-signal-studio",
+  "version": "0.3.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit --incremental false"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.56.1",
+    "@tailwindcss/postcss": "^4.1.13",
+    "@xyflow/react": "^12.10.1",
+    "clsx": "^2.1.1",
+    "next": "15.5.14",
+    "postcss": "^8.5.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^3.2.1",
+    "rss-parser": "^3.13.0",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss": "^4.1.13",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-config-next": "15.5.14",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "typescript": "^5.7.3"
+  }
+}
+
+
+========================================================================================================================
 FILE: postcss.config.js
 ========================================================================================================================
 
@@ -8140,107 +8269,6 @@ module.exports = {
     '@tailwindcss/postcss': {},
   },
 };
-
-
-========================================================================================================================
-FILE: README.md
-========================================================================================================================
-
-# Finance Signal Studio
-
-Finance Signal Studio is a full-stack AI-powered financial intelligence and stock prediction platform built with Next.js, Tailwind CSS, React Flow, Google Gemini, Alpha Vantage, Reddit, RSS feeds, and optional Supabase persistence.
-
-## Features
-
-- Multi-source ingestion from RSS feeds, News API, and Reddit
-- Gemini-driven processing for summary, sentiment, event extraction, impact, and explanation
-- Dynamic market sentiment engine with mention volume and trend scoring
-- Stock prediction engine with confidence and AI explanation
-- React Flow workflow canvas from News to Prediction to Related Companies
-- Related-company graph for competitors, suppliers, partners, and chain reactions
-- Stock dashboard with price history, volume, SMA, and momentum
-- Trending companies and alert panels for sudden sentiment spikes
-- Optional Supabase persistence for signals and generated snapshots
-
-## Folder Structure
-
-- `app/` Next.js routes and API endpoints
-- `frontend/` dashboard and workflow UI modules
-- `backend/` orchestration, engines, and repositories
-- `components/` reusable presentation components
-- `services/` external integrations and AI/market connectors
-- `utils/` formatting and helper utilities
-- `data/` contracts, watchlist seed data, and SQL schema
-
-## API Endpoints
-
-- `GET /api/intelligence/[symbol]` returns the full intelligence payload for one company
-- `GET /api/trending` returns trending companies based on current buzz scoring
-
-## Environment Variables
-
-Copy `.env.example` to `.env.local` and fill in the values you want to enable.
-
-```env
-ALPHA_VANTAGE_API_KEY=
-NEWS_API_KEY=
-GEMINI_API_KEY=
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-```
-
-## Local Development
-
-```bash
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000`.
-
-## Supabase Setup
-
-If you want persistence:
-
-1. Create a Supabase project.
-2. Open the SQL editor.
-3. Run the schema in `data/schema.sql`.
-4. Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`.
-
-## Vercel Deployment
-
-1. Push the repo to GitHub.
-2. Import the repo into Vercel.
-3. Add the same environment variables in Vercel Project Settings.
-4. Deploy.
-
-## Notes
-
-- Gemini is the primary AI engine. If the API key is missing or parsing fails, the app falls back to heuristics.
-- News API free usage is suitable for development and testing; review their production restrictions before going live.
-- Reddit is fetched from public JSON endpoints for `r/stocks`, `r/investing`, and `r/wallstreetbets`.
-- Use `SUPABASE_URL` for the server-side admin client. `NEXT_PUBLIC_SUPABASE_URL` remains supported only as a fallback.
-
-## Validation
-
-```bash
-npm run lint
-npx tsc --noEmit --incremental false
-```
-
-## Deployment Procedure
-
-1. Copy `.env.example` to `.env.local`.
-2. Fill in the API keys you want to enable.
-3. If you want persistence, create a Supabase project and run `data/schema.sql`.
-4. Run `npm run lint`.
-5. Run `npx tsc --noEmit --incremental false`.
-6. Run `npm run build`.
-7. Push the repo to GitHub.
-8. Import the repo into Vercel as a Next.js project.
-9. Add the same environment variables in Vercel. Use `SUPABASE_URL` for the server-side admin client; `NEXT_PUBLIC_SUPABASE_URL` is only a fallback.
-10. Deploy.
-11. Verify `/`, `/api/trending`, and `/api/intelligence/NVDA`.
 
 
 ========================================================================================================================
@@ -8537,31 +8565,59 @@ function average(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function buildFallbackHistory(): StockPoint[] {
+const INDIAN_BASE_PRICES: Record<string, number> = {
+  "RELIANCE.BSE": 2850,
+  "TCS.BSE": 3920,
+  "HDFCBANK.BSE": 1680,
+  "INFY.BSE": 1780,
+  "ICICIBANK.BSE": 1280,
+  "HINDUNILVR.BSE": 2340,
+  "SBIN.BSE": 820,
+  "BHARTIARTL.BSE": 1650,
+  "WIPRO.BSE": 480,
+  "ADANIENT.BSE": 2420,
+};
+
+function buildFallbackHistory(symbol: string): StockPoint[] {
+  const basePrice = INDIAN_BASE_PRICES[symbol] ?? 1000;
   const today = new Date();
-  return Array.from({ length: 10 }).map((_, index) => {
+
+  return Array.from({ length: 20 }).map((_, index) => {
     const date = new Date(today);
-    date.setDate(today.getDate() - (9 - index));
+    date.setDate(today.getDate() - (19 - index));
+
+    if (date.getDay() === 0) date.setDate(date.getDate() - 2);
+    if (date.getDay() === 6) date.setDate(date.getDate() - 1);
+
+    const trend = index * 0.003;
+    const noise = (Math.random() - 0.48) * basePrice * 0.018;
+    const close = Number((basePrice * (1 + trend) + noise).toFixed(2));
+
     return {
       date: date.toISOString().slice(0, 10),
-      close: 100 + index * 1.5,
-      volume: 1000000 + index * 50000,
+      close,
+      volume: Math.floor(500000 + Math.random() * 3000000),
     };
   });
 }
 
 function buildFallbackSnapshot(symbol: string, name: string): StockSnapshot {
-  const history = buildFallbackHistory();
+  const history = buildFallbackHistory(symbol);
+  const last = history.at(-1)!;
+  const prev = history.at(-2)!;
+  const change = Number((last.close - prev.close).toFixed(2));
+  const changePercent = Number(((change / prev.close) * 100).toFixed(2));
+
   return {
     symbol,
     name,
-    currency: "USD",
-    price: history.at(-1)?.close ?? null,
-    change: 1.5,
-    changePercent: 1.2,
-    volume: history.at(-1)?.volume ?? null,
+    currency: "INR",
+    price: last.close,
+    change,
+    changePercent,
+    volume: last.volume,
     sma5: average(history.slice(-5).map((item) => item.close)),
-    momentum: 1.2,
+    momentum: changePercent,
     history,
   };
 }
@@ -8593,22 +8649,28 @@ export async function fetchStockSnapshot(symbol: string, name: string): Promise<
         volume: Number(point["5. volume"]),
       }));
 
+    if (!history.length || !quote["05. price"]) {
+      return buildFallbackSnapshot(symbol, name);
+    }
+
     const last = history.at(-1);
     const prev = history.at(-2);
-    const change = last && prev ? last.close - prev.close : num(quote["09. change"]);
-    const changePercent = prev && change !== null ? (change / prev.close) * 100 : num(quote["10. change percent"]?.replace("%", ""));
+    const change = last && prev ? Number((last.close - prev.close).toFixed(2)) : num(quote["09. change"]);
+    const changePercent = prev && change !== null
+      ? Number(((change / prev.close) * 100).toFixed(2))
+      : num(quote["10. change percent"]?.replace("%", ""));
 
     return {
       symbol,
       name,
-      currency: "USD",
+      currency: "INR",
       price: num(quote["05. price"]) ?? last?.close ?? null,
       change,
       changePercent,
       volume: last?.volume ?? null,
       sma5: average(history.slice(-5).map((item) => item.close)),
       momentum: changePercent,
-      history: history.length ? history : buildFallbackHistory(),
+      history: history.length ? history : buildFallbackHistory(symbol),
     };
   } catch (error) {
     console.error(`Market data fallback for ${symbol}:`, error);
@@ -8754,5 +8816,6 @@ export function formatCompactNumber(value: number | null) {
   if (value === null || Number.isNaN(value)) return "N/A";
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
+
 
 

@@ -17,31 +17,59 @@ function average(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function buildFallbackHistory(): StockPoint[] {
+const INDIAN_BASE_PRICES: Record<string, number> = {
+  "RELIANCE.BSE": 2850,
+  "TCS.BSE": 3920,
+  "HDFCBANK.BSE": 1680,
+  "INFY.BSE": 1780,
+  "ICICIBANK.BSE": 1280,
+  "HINDUNILVR.BSE": 2340,
+  "SBIN.BSE": 820,
+  "BHARTIARTL.BSE": 1650,
+  "WIPRO.BSE": 480,
+  "ADANIENT.BSE": 2420,
+};
+
+function buildFallbackHistory(symbol: string): StockPoint[] {
+  const basePrice = INDIAN_BASE_PRICES[symbol] ?? 1000;
   const today = new Date();
-  return Array.from({ length: 10 }).map((_, index) => {
+
+  return Array.from({ length: 20 }).map((_, index) => {
     const date = new Date(today);
-    date.setDate(today.getDate() - (9 - index));
+    date.setDate(today.getDate() - (19 - index));
+
+    if (date.getDay() === 0) date.setDate(date.getDate() - 2);
+    if (date.getDay() === 6) date.setDate(date.getDate() - 1);
+
+    const trend = index * 0.003;
+    const noise = (Math.random() - 0.48) * basePrice * 0.018;
+    const close = Number((basePrice * (1 + trend) + noise).toFixed(2));
+
     return {
       date: date.toISOString().slice(0, 10),
-      close: 100 + index * 1.5,
-      volume: 1000000 + index * 50000,
+      close,
+      volume: Math.floor(500000 + Math.random() * 3000000),
     };
   });
 }
 
 function buildFallbackSnapshot(symbol: string, name: string): StockSnapshot {
-  const history = buildFallbackHistory();
+  const history = buildFallbackHistory(symbol);
+  const last = history.at(-1)!;
+  const prev = history.at(-2)!;
+  const change = Number((last.close - prev.close).toFixed(2));
+  const changePercent = Number(((change / prev.close) * 100).toFixed(2));
+
   return {
     symbol,
     name,
-    currency: "USD",
-    price: history.at(-1)?.close ?? null,
-    change: 1.5,
-    changePercent: 1.2,
-    volume: history.at(-1)?.volume ?? null,
+    currency: "INR",
+    price: last.close,
+    change,
+    changePercent,
+    volume: last.volume,
     sma5: average(history.slice(-5).map((item) => item.close)),
-    momentum: 1.2,
+    momentum: changePercent,
     history,
   };
 }
@@ -73,22 +101,28 @@ export async function fetchStockSnapshot(symbol: string, name: string): Promise<
         volume: Number(point["5. volume"]),
       }));
 
+    if (!history.length || !quote["05. price"]) {
+      return buildFallbackSnapshot(symbol, name);
+    }
+
     const last = history.at(-1);
     const prev = history.at(-2);
-    const change = last && prev ? last.close - prev.close : num(quote["09. change"]);
-    const changePercent = prev && change !== null ? (change / prev.close) * 100 : num(quote["10. change percent"]?.replace("%", ""));
+    const change = last && prev ? Number((last.close - prev.close).toFixed(2)) : num(quote["09. change"]);
+    const changePercent = prev && change !== null
+      ? Number(((change / prev.close) * 100).toFixed(2))
+      : num(quote["10. change percent"]?.replace("%", ""));
 
     return {
       symbol,
       name,
-      currency: "USD",
+      currency: "INR",
       price: num(quote["05. price"]) ?? last?.close ?? null,
       change,
       changePercent,
       volume: last?.volume ?? null,
       sma5: average(history.slice(-5).map((item) => item.close)),
       momentum: changePercent,
-      history: history.length ? history : buildFallbackHistory(),
+      history: history.length ? history : buildFallbackHistory(symbol),
     };
   } catch (error) {
     console.error(`Market data fallback for ${symbol}:`, error);

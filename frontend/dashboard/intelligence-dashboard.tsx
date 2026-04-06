@@ -7,9 +7,24 @@ import { StockChartCard } from "@/components/stock-chart-card";
 import { WorkflowCanvas } from "@/frontend/workflow/workflow-canvas";
 import { formatCompactNumber, formatCurrency, formatPercent } from "@/utils/format";
 
-const PRESETS = ["NVDA", "AAPL", "MSFT", "TSLA", "AMD"];
+const PRESETS = ["RELIANCE.BSE", "TCS.BSE", "HDFCBANK.BSE", "INFY.BSE", "ICICIBANK.BSE"];
 
-export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbol?: string }) {
+const PRESET_LABELS: Record<string, string> = {
+  "RELIANCE.BSE": "RELIANCE",
+  "TCS.BSE": "TCS",
+  "HDFCBANK.BSE": "HDFC",
+  "INFY.BSE": "INFY",
+  "ICICIBANK.BSE": "ICICI",
+};
+
+function getPredictionLabel(direction: string, confidence: number) {
+  const pct = Math.round(confidence * 20);
+  if (direction === "UP") return `[Bullish] Est. +${pct}% move | ${Math.round(confidence * 100)}% confidence`;
+  if (direction === "DOWN") return `[Bearish] Est. -${pct}% move | ${Math.round(confidence * 100)}% confidence`;
+  return `[Neutral] No strong signal | ${Math.round(confidence * 100)}% confidence`;
+}
+
+export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { initialSymbol?: string }) {
   const [query, setQuery] = useState(initialSymbol);
   const [symbol, setSymbol] = useState(initialSymbol);
   const [data, setData] = useState<IntelligenceResponse | null>(null);
@@ -23,7 +38,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/intelligence/${symbol}`, { signal: controller.signal });
+        const response = await fetch(`/api/intelligence/${encodeURIComponent(symbol)}`, { signal: controller.signal });
         if (!response.ok) throw new Error("Unable to load intelligence feed.");
         const payload = (await response.json()) as IntelligenceResponse;
         setData(payload);
@@ -49,12 +64,12 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
         <section className="overflow-hidden rounded-[34px] border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/40">
           <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.4em] text-cyan-300">Full-stack AI financial intelligence</p>
+              <p className="text-[11px] uppercase tracking-[0.4em] text-cyan-300">Indian Market AI Intelligence</p>
               <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Multi-source market intelligence with Gemini-driven sentiment, prediction, and chain-reaction analysis.
+                BSE & NSE market intelligence with Gemini-driven sentiment, prediction, and chain-reaction analysis.
               </h1>
               <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-                This platform aggregates RSS feeds, mainstream news, and Reddit sentiment, converts them into structured financial signals, tracks dynamic sentiment scores, predicts stock direction, and maps related-company shockwaves in one workflow-centric interface.
+                Track top Indian companies across IT, Banking, Telecom, FMCG and Conglomerates. Multi-source news aggregation with AI-powered sentiment scoring and stock prediction.
               </p>
             </div>
             <div className="rounded-[30px] border border-white/10 bg-white/5 p-5">
@@ -62,7 +77,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
                 className="space-y-4"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  setSymbol(query.trim().toUpperCase() || "NVDA");
+                  setSymbol(query.trim().toUpperCase() || "RELIANCE.BSE");
                 }}
               >
                 <div>
@@ -73,9 +88,11 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
                       value={query}
                       onChange={(event) => setQuery(event.target.value.toUpperCase())}
                       className="flex-1 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none ring-0 placeholder:text-slate-500"
-                      placeholder="NVDA"
+                      placeholder="RELIANCE.BSE"
                     />
-                    <button className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200" type="submit">Run intelligence</button>
+                    <button className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200" type="submit">
+                      Analyse
+                    </button>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -89,7 +106,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
                         setSymbol(preset);
                       }}
                     >
-                      {preset}
+                      {PRESET_LABELS[preset]}
                     </button>
                   ))}
                 </div>
@@ -97,7 +114,7 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <TopMetric label="Mentions" value={primary ? String(primary.sentiment.mentionVolume) : loading ? "..." : "0"} />
                 <TopMetric label="Prediction" value={primary?.prediction.direction ?? (loading ? "..." : "N/A")} />
-                <TopMetric label="Price" value={primary ? formatCurrency(primary.stock.price, primary.stock.currency) : loading ? "..." : "N/A"} />
+                <TopMetric label="Price (INR)" value={primary ? formatCurrency(primary.stock.price, "INR") : loading ? "..." : "N/A"} />
                 <TopMetric label="Volume" value={primary ? formatCompactNumber(primary.stock.volume) : loading ? "..." : "N/A"} />
               </div>
             </div>
@@ -111,30 +128,43 @@ export function IntelligenceDashboard({ initialSymbol = "NVDA" }: { initialSymbo
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.35em] text-cyan-300">Company intelligence</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">{primary ? `${primary.company.name} (${primary.company.symbol})` : loading ? "Loading..." : "No data"}</h2>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  {primary ? `${primary.company.name} (${primary.company.symbol})` : loading ? "Loading..." : "No data"}
+                </h2>
+                <p className="mt-1 text-xs text-slate-400">{primary ? `${primary.company.sector} | ${primary.company.exchange}` : ""}</p>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{primary?.whyMoving ?? "Fetching AI-generated explanation of the latest price move."}</p>
               </div>
-              <div className={`rounded-full border px-4 py-2 text-sm font-semibold ${primary?.prediction.direction === "UP" ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : primary?.prediction.direction === "DOWN" ? "border-rose-300/30 bg-rose-300/10 text-rose-200" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>
-                {primary ? `${primary.prediction.direction} | ${Math.round(primary.prediction.confidence * 100)}% confidence` : "Waiting"}
+              <div className={`rounded-full border px-4 py-2 text-sm font-semibold ${
+                primary?.prediction.direction === "UP"
+                  ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+                  : primary?.prediction.direction === "DOWN"
+                    ? "border-rose-300/30 bg-rose-300/10 text-rose-200"
+                    : "border-amber-300/30 bg-amber-300/10 text-amber-100"
+              }`}>
+                {primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence) : "Waiting"}
               </div>
             </div>
+
             <div className="mt-6 grid gap-4 md:grid-cols-4">
               <FeatureCard label="Sentiment score" value={primary ? `${primary.sentiment.score}/100` : "..."} detail={`Trend ${primary ? primary.sentiment.trend.toFixed(1) : "0"}`} />
-              <FeatureCard label="Day move" value={primary ? formatPercent(primary.stock.changePercent) : "..."} detail={`Price ${primary ? formatCurrency(primary.stock.price, primary.stock.currency) : "..."}`} />
+              <FeatureCard label="Day move" value={primary ? formatPercent(primary.stock.changePercent) : "..."} detail={`Price INR ${primary?.stock.price?.toFixed(2) ?? "..."}`} />
               <FeatureCard label="Event pressure" value={primary ? String(primary.sentiment.highImpactCount) : "..."} detail="High-impact catalysts" />
               <FeatureCard label="Mention heat" value={`${mentionMeter}%`} detail="News and social volume" />
             </div>
+
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {comparison.map((stock) => (
                 <article key={stock.symbol} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="text-sm font-semibold text-white">{stock.symbol}</div>
+                      <div className="text-sm font-semibold text-white">{stock.symbol.replace(".BSE", "")}</div>
                       <div className="text-xs text-slate-400">{stock.name}</div>
                     </div>
-                    <span className={`text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>{formatPercent(stock.changePercent)}</span>
+                    <span className={`text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                      {formatPercent(stock.changePercent)}
+                    </span>
                   </div>
-                  <div className="mt-3 text-lg font-semibold text-white">{formatCurrency(stock.price, stock.currency)}</div>
+                  <div className="mt-3 text-lg font-semibold text-white">INR {stock.price?.toFixed(2) ?? "N/A"}</div>
                   <div className="mt-1 text-xs text-slate-400">Volume {formatCompactNumber(stock.volume)}</div>
                 </article>
               ))}
