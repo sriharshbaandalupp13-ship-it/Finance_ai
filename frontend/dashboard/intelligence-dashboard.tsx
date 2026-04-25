@@ -155,12 +155,12 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {comparison.map((stock) => (
                 <article key={stock.symbol} className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex min-h-[3rem] items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-white">{stock.symbol.replace(".BSE", "")}</div>
+                      <div className="truncate text-sm font-semibold text-white">{stock.symbol.replace(".BSE", "")}</div>
                       <div className="truncate text-xs text-slate-400">{stock.name}</div>
                     </div>
-                    <span className={`shrink-0 text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                    <span className={`shrink-0 whitespace-nowrap text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
                       {formatPercent(stock.changePercent)}
                     </span>
                   </div>
@@ -207,10 +207,10 @@ function TopMetric({ label, value }: { label: string; value: string }) {
 
 function FeatureCard({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="text-[11px] uppercase tracking-[0.32em] text-slate-400">{label}</div>
+    <div className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="min-h-[2rem] text-[11px] uppercase leading-tight tracking-[0.2em] text-slate-400">{label}</div>
       <div className="mt-2 text-xl font-semibold text-white">{value}</div>
-      <div className="mt-1 text-sm text-slate-400">{detail}</div>
+      <div className="min-h-[2.5rem] mt-1 text-sm leading-snug text-slate-400">{detail}</div>
     </div>
   );
 }
