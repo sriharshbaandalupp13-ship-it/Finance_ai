@@ -18,10 +18,10 @@ const PRESET_LABELS: Record<string, string> = {
 };
 
 function getPredictionLabel(direction: string, confidence: number) {
-  const pct = Math.round(confidence * 20);
-  if (direction === "UP") return `[Bullish] Est. +${pct}% move | ${Math.round(confidence * 100)}% confidence`;
-  if (direction === "DOWN") return `[Bearish] Est. -${pct}% move | ${Math.round(confidence * 100)}% confidence`;
-  return `[Neutral] No strong signal | ${Math.round(confidence * 100)}% confidence`;
+  const pct = Math.round(confidence * 100);
+  if (direction === "UP") return `Bullish · ${pct}% confidence`;
+  if (direction === "DOWN") return `Bearish · ${pct}% confidence`;
+  return `Neutral · ${pct}% confidence`;
 }
 
 export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { initialSymbol?: string }) {
@@ -154,13 +154,13 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
 
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {comparison.map((stock) => (
-                <article key={stock.symbol} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
+                <article key={stock.symbol} className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex min-h-[3rem] items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-white">{stock.symbol.replace(".BSE", "")}</div>
-                      <div className="text-xs text-slate-400">{stock.name}</div>
+                      <div className="truncate text-xs text-slate-400">{stock.name}</div>
                     </div>
-                    <span className={`text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                    <span className={`shrink-0 text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
                       {formatPercent(stock.changePercent)}
                     </span>
                   </div>
