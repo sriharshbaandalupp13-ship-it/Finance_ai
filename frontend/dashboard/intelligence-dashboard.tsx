@@ -155,11 +155,11 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {comparison.map((stock) => (
                 <article key={stock.symbol} className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-white">{stock.symbol.replace(".BSE", "")}</div>
-                      <div className="truncate text-xs text-slate-400">{stock.name}</div>
-                    </div>
+                  {/* Ticker on its own full-width line — no competing badge */}
+                  <div className="truncate text-sm font-bold text-white">{stock.symbol.replace(".BSE", "")}</div>
+                  {/* Company name + % badge on the next line — name truncates, badge never overlaps */}
+                  <div className="mt-0.5 flex items-center justify-between gap-2">
+                    <div className="truncate text-xs text-slate-400">{stock.name}</div>
                     <span className={`shrink-0 whitespace-nowrap text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
                       {formatPercent(stock.changePercent)}
                     </span>
