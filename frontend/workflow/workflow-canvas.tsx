@@ -119,7 +119,7 @@ export function WorkflowCanvas({ workflow, symbol, relations }: { workflow: Work
         </div>
         <div className="h-[320px] overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),transparent_30%),linear-gradient(180deg,#020617,#0f172a)]">
           <ReactFlow nodes={relationNodes} edges={relationEdges} fitView nodesDraggable={false} elementsSelectable={false}>
-            <MiniMap pannable zoomable />
+            <MiniMap pannable zoomable nodeColor="#22d3ee" maskColor="rgba(2,6,23,0.7)" />
             <Background color="#1e293b" gap={20} />
           </ReactFlow>
         </div>
