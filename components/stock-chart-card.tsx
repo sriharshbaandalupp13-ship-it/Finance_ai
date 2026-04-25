@@ -24,18 +24,42 @@ export function StockChartCard({ stock }: { stock: StockSnapshot }) {
       </div>
       <div className="mt-5 h-72 rounded-3xl border border-white/10 bg-slate-900/70 p-4">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={stock.history}>
+          <AreaChart data={stock.history} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
             <defs>
               <linearGradient id={`fill-${stock.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.8} />
+                <stop offset="5%"  stopColor="#22d3ee" stopOpacity={0.8} />
                 <stop offset="95%" stopColor="#22d3ee" stopOpacity={0.05} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-            <XAxis dataKey="date" tick={{ fill: "#94a3b8", fontSize: 12 }} />
-            <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} domain={["dataMin - 2", "dataMax + 2"]} />
-            <Tooltip contentStyle={{ backgroundColor: "#020617", border: "1px solid #1e293b", borderRadius: 16 }} />
-            <Area type="monotone" dataKey="close" stroke="#22d3ee" fill={`url(#fill-${stock.symbol})`} strokeWidth={2} />
+            <XAxis
+              dataKey="date"
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              tickFormatter={(value: string) => {
+                const d = new Date(value);
+                return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+              }}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              width={72}
+              domain={[
+                (dataMin: number) => Math.floor(dataMin * 0.98),
+                (dataMax: number) => Math.ceil(dataMax * 1.02),
+              ]}
+              tickFormatter={(value: number) =>
+                value >= 1000
+                  ? `₹${(value / 1000).toFixed(1)}K`
+                  : `₹${value.toFixed(0)}`
+              }
+            />
+            <Tooltip
+              contentStyle={{ backgroundColor: "#020617", border: "1px solid #1e293b", borderRadius: 16 }}
+              formatter={(value: number) => [`₹${value.toFixed(2)}`, "Price"]}
+              labelFormatter={(label: string) => new Date(label).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+            />
+            <Area type="monotone" dataKey="close" stroke="#22d3ee" fill={`url(#fill-${stock.symbol})`} strokeWidth={2} dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
