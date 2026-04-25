@@ -1,33 +1,36 @@
 import type { StockPoint, StockSnapshot } from "@/data/contracts";
 
-const BASE_URL = "https://www.alphavantage.co/query";
-
-function alphaKey() {
-  return process.env.ALPHA_VANTAGE_API_KEY;
+// Yahoo Finance uses .BO for BSE and .NS for NSE.
+// Our app stores symbols with .BSE / .NSE suffixes, so we convert here.
+function toYahooSymbol(symbol: string): string {
+  if (symbol.endsWith(".BSE")) return symbol.replace(".BSE", ".BO");
+  if (symbol.endsWith(".NSE")) return symbol.replace(".NSE", ".NS");
+  return symbol;
 }
 
-function num(value: string | undefined) {
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+function num(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  return Number.isFinite(value) ? value : null;
 }
 
-function average(values: number[]) {
+function average(values: number[]): number | null {
   if (!values.length) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
+// Fallback base prices (approximate real April 2026 levels) used only when
+// Yahoo Finance is unreachable.
 const INDIAN_BASE_PRICES: Record<string, number> = {
-  "RELIANCE.BSE": 2850,
-  "TCS.BSE": 3920,
-  "HDFCBANK.BSE": 1680,
-  "INFY.BSE": 1780,
-  "ICICIBANK.BSE": 1280,
+  "RELIANCE.BSE":   1330,
+  "TCS.BSE":        3500,
+  "HDFCBANK.BSE":   1760,
+  "INFY.BSE":       1440,
+  "ICICIBANK.BSE":  1320,
   "HINDUNILVR.BSE": 2340,
-  "SBIN.BSE": 820,
-  "BHARTIARTL.BSE": 1650,
-  "WIPRO.BSE": 480,
-  "ADANIENT.BSE": 2420,
+  "SBIN.BSE":        780,
+  "BHARTIARTL.BSE": 1740,
+  "WIPRO.BSE":       480,
+  "ADANIENT.BSE":   2550,
 };
 
 function buildFallbackHistory(symbol: string): StockPoint[] {
@@ -38,8 +41,8 @@ function buildFallbackHistory(symbol: string): StockPoint[] {
     const date = new Date(today);
     date.setDate(today.getDate() - (19 - index));
 
-    if (date.getDay() === 0) date.setDate(date.getDate() - 2);
     if (date.getDay() === 6) date.setDate(date.getDate() - 1);
+    else if (date.getDay() === 0) date.setDate(date.getDate() - 2);
 
     const trend = index * 0.003;
     const noise = (Math.random() - 0.48) * basePrice * 0.018;
@@ -48,7 +51,7 @@ function buildFallbackHistory(symbol: string): StockPoint[] {
     return {
       date: date.toISOString().slice(0, 10),
       close,
-      volume: Math.floor(500000 + Math.random() * 3000000),
+      volume: Math.floor(500_000 + Math.random() * 3_000_000),
     };
   });
 }
@@ -74,58 +77,94 @@ function buildFallbackSnapshot(symbol: string, name: string): StockSnapshot {
   };
 }
 
+// Yahoo Finance chart API response shape (unofficial but stable)
+interface YahooChartResponse {
+  chart: {
+    result?: Array<{
+      meta: {
+        regularMarketPrice: number;
+        previousClose:      number;
+        regularMarketVolume: number;
+        currency:           string;
+      };
+      timestamp: number[];
+      indicators: {
+        quote: Array<{
+          close:  (number | null)[];
+          volume: (number | null)[];
+        }>;
+      };
+    }>;
+    error?: { code: string; description: string };
+  };
+}
+
 export async function fetchStockSnapshot(symbol: string, name: string): Promise<StockSnapshot> {
-  const key = alphaKey();
-  if (!key) {
-    return buildFallbackSnapshot(symbol, name);
-  }
+  const yahooSymbol = toYahooSymbol(symbol);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1mo&includePrePost=false`;
 
   try {
-    const [quoteResponse, dailyResponse] = await Promise.all([
-      fetch(`${BASE_URL}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${key}`, { next: { revalidate: 300 } }),
-      fetch(`${BASE_URL}?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact&apikey=${key}`, { next: { revalidate: 300 } }),
-    ]);
+    const response = await fetch(url, {
+      headers: {
+        // Some Yahoo Finance endpoints return 401 without a User-Agent.
+        "User-Agent": "Mozilla/5.0 (compatible; FinanceSignalStudio/1.0)",
+      },
+      // Cache for 5 minutes in Next.js ISR.
+      next: { revalidate: 300 },
+    });
 
-    const quoteJson = quoteResponse.ok ? await quoteResponse.json() : {};
-    const dailyJson = dailyResponse.ok ? await dailyResponse.json() : {};
-
-    const quote = (quoteJson as { "Global Quote"?: Record<string, string> })["Global Quote"] ?? {};
-    const series = (dailyJson as { "Time Series (Daily)"?: Record<string, Record<string, string>> })["Time Series (Daily)"] ?? {};
-
-    const history = Object.entries(series)
-      .slice(0, 20)
-      .reverse()
-      .map(([date, point]) => ({
-        date,
-        close: Number(point["4. close"]),
-        volume: Number(point["5. volume"]),
-      }));
-
-    if (!history.length || !quote["05. price"]) {
+    if (!response.ok) {
+      console.warn(`Yahoo Finance returned HTTP ${response.status} for ${yahooSymbol}, using fallback.`);
       return buildFallbackSnapshot(symbol, name);
     }
 
-    const last = history.at(-1);
-    const prev = history.at(-2);
-    const change = last && prev ? Number((last.close - prev.close).toFixed(2)) : num(quote["09. change"]);
-    const changePercent = prev && change !== null
-      ? Number(((change / prev.close) * 100).toFixed(2))
-      : num(quote["10. change percent"]?.replace("%", ""));
+    const json = (await response.json()) as YahooChartResponse;
+    const result = json.chart.result?.[0];
+
+    if (!result) {
+      console.warn(`Yahoo Finance: no result for ${yahooSymbol}, using fallback.`);
+      return buildFallbackSnapshot(symbol, name);
+    }
+
+    const { meta, timestamp, indicators } = result;
+    const rawCloses  = indicators.quote[0]?.close  ?? [];
+    const rawVolumes = indicators.quote[0]?.volume ?? [];
+
+    // Build clean daily history, filtering out any null candles.
+    const history: StockPoint[] = timestamp
+      .map((ts, i) => ({
+        date:   new Date(ts * 1000).toISOString().slice(0, 10),
+        close:  rawCloses[i],
+        volume: rawVolumes[i],
+      }))
+      .filter((p): p is StockPoint => p.close != null && p.volume != null)
+      .slice(-20);
+
+    if (!history.length) {
+      console.warn(`Yahoo Finance: empty history for ${yahooSymbol}, using fallback.`);
+      return buildFallbackSnapshot(symbol, name);
+    }
+
+    const last      = history.at(-1)!;
+    const prevClose = num(meta.previousClose) ?? history.at(-2)?.close ?? last.close;
+    const price     = num(meta.regularMarketPrice) ?? last.close;
+    const change    = Number((price - prevClose).toFixed(2));
+    const changePercent = Number(((change / prevClose) * 100).toFixed(2));
 
     return {
       symbol,
       name,
-      currency: "INR",
-      price: num(quote["05. price"]) ?? last?.close ?? null,
+      currency:      meta.currency ?? "INR",
+      price,
       change,
       changePercent,
-      volume: last?.volume ?? null,
-      sma5: average(history.slice(-5).map((item) => item.close)),
+      volume:  num(meta.regularMarketVolume) ?? last.volume,
+      sma5:    average(history.slice(-5).map((item) => item.close)),
       momentum: changePercent,
-      history: history.length ? history : buildFallbackHistory(symbol),
+      history,
     };
   } catch (error) {
-    console.error(`Market data fallback for ${symbol}:`, error);
+    console.error(`Yahoo Finance fetch error for ${symbol}:`, error);
     return buildFallbackSnapshot(symbol, name);
   }
 }
