@@ -24,6 +24,11 @@ function getPredictionLabel(direction: string, confidence: number) {
   return `Neutral · ${pct}% confidence`;
 }
 
+function formatPriceChange(change: number) {
+  const sign = change >= 0 ? "+" : "";
+  return `${sign}₹${Math.abs(change).toFixed(2)}`;
+}
+
 export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { initialSymbol?: string }) {
   const [query, setQuery] = useState(initialSymbol);
   const [symbol, setSymbol] = useState(initialSymbol);
@@ -113,9 +118,9 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
               </form>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <TopMetric label="Mentions" value={primary ? String(primary.sentiment.mentionVolume) : loading ? "..." : "0"} />
-                <TopMetric label="Prediction" value={primary?.prediction.direction ?? (loading ? "..." : "N/A")} />
+                <TopMetric label="Prediction" value={primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence) : loading ? "..." : "N/A"} />
                 <TopMetric label="Price (INR)" value={primary ? formatCurrency(primary.stock.price, "INR") : loading ? "..." : "N/A"} />
-                <TopMetric label="Volume" value={primary ? formatCompactNumber(primary.stock.volume) : loading ? "..." : "N/A"} />
+                <TopMetric label="Tomorrow target" value={primary ? `₹${primary.prediction.priceTarget.toFixed(2)}` : loading ? "..." : "N/A"} />
               </div>
             </div>
           </div>
@@ -134,14 +139,35 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                 <p className="mt-1 text-xs text-slate-400">{primary ? `${primary.company.sector} | ${primary.company.exchange}` : ""}</p>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{primary?.whyMoving ?? "Fetching AI-generated explanation of the latest price move."}</p>
               </div>
-              <div className={`rounded-full border px-4 py-2 text-sm font-semibold ${
-                primary?.prediction.direction === "UP"
-                  ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
-                  : primary?.prediction.direction === "DOWN"
-                    ? "border-rose-300/30 bg-rose-300/10 text-rose-200"
-                    : "border-amber-300/30 bg-amber-300/10 text-amber-100"
-              }`}>
-                {primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence) : "Waiting"}
+              {/* Prediction block: direction pill + price target */}
+              <div className="flex flex-col items-end gap-2">
+                <div className={`rounded-full border px-4 py-2 text-sm font-semibold ${
+                  primary?.prediction.direction === "UP"
+                    ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+                    : primary?.prediction.direction === "DOWN"
+                      ? "border-rose-300/30 bg-rose-300/10 text-rose-200"
+                      : "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                }`}>
+                  {primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence) : "Waiting"}
+                </div>
+                {/* Tomorrow's price target */}
+                {primary && (
+                  <div className={`rounded-2xl border px-4 py-3 text-right ${
+                    primary.prediction.direction === "UP"
+                      ? "border-emerald-400/20 bg-emerald-400/8"
+                      : primary.prediction.direction === "DOWN"
+                        ? "border-rose-400/20 bg-rose-400/8"
+                        : "border-amber-400/20 bg-amber-400/8"
+                  }`}>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">Tomorrow&apos;s target</p>
+                    <p className="mt-1 text-xl font-bold text-white">₹{primary.prediction.priceTarget.toFixed(2)}</p>
+                    <p className={`text-sm font-semibold ${
+                      primary.prediction.priceChange >= 0 ? "text-emerald-300" : "text-rose-300"
+                    }`}>
+                      {formatPriceChange(primary.prediction.priceChange)}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

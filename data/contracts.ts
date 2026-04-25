@@ -76,6 +76,10 @@ export interface PredictionSnapshot {
   direction: PredictionDirection;
   confidence: number;
   explanation: string;
+  /** Estimated price change in rupees for tomorrow (positive = UP, negative = DOWN) */
+  priceChange: number;
+  /** Estimated absolute price for tomorrow */
+  priceTarget: number;
 }
 
 export interface AlertItem {

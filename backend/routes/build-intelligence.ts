@@ -92,15 +92,19 @@ export async function buildCompanyIntelligence(symbol: string): Promise<Intellig
   const relations = getRelations(company.symbol);
   const relatedCompanies = getRelatedCompanies(company.symbol);
 
-  const [processedItems, stock, relatedStocks] = await Promise.all([
+  // Fetch primary signals, related signals, and stock data all in parallel.
+  // Related signals are needed for buildTrending() and were previously fetched
+  // sequentially after persistence — moving them here cuts one full round-trip.
+  const [processedItems, stock, relatedStocks, relatedSignals] = await Promise.all([
     fetchSignalsForCompany(company),
     fetchStockSnapshot(company.symbol, company.name),
     Promise.all(relatedCompanies.slice(0, 4).map((item) => fetchStockSnapshot(item.symbol, item.name))),
+    Promise.all(relatedCompanies.slice(0, 4).map(fetchSignalsForCompany)),
   ]);
 
   const sentiment = buildSentimentSnapshot(company.symbol, processedItems);
   const dominantDrivers = [...new Set(processedItems.slice(0, 5).map((item) => item.financialEvent))];
-  const prediction = await buildPrediction(company, sentiment, dominantDrivers);
+  const prediction = await buildPrediction(company, sentiment, dominantDrivers, stock);
   const alerts = buildAlerts(company.symbol, processedItems, sentiment);
   const whyMoving = buildWhyMoving(company.symbol, processedItems);
 
@@ -126,7 +130,6 @@ export async function buildCompanyIntelligence(symbol: string): Promise<Intellig
     });
   });
 
-  const relatedSignals = await Promise.all(relatedCompanies.slice(0, 4).map(fetchSignalsForCompany));
   const allSignals = [processedItems, ...relatedSignals].flat();
 
   return {
