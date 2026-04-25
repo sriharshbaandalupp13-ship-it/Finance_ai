@@ -1,10 +1,18 @@
 "use client";
 
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { StockSnapshot } from "@/data/contracts";
+import type { PredictionSnapshot, StockSnapshot } from "@/data/contracts";
 import { formatCompactNumber, formatCurrency, formatPercent } from "@/utils/format";
 
-export function StockChartCard({ stock }: { stock: StockSnapshot }) {
+interface StockChartCardProps {
+  stock: StockSnapshot;
+  prediction?: PredictionSnapshot;
+}
+
+export function StockChartCard({ stock, prediction }: StockChartCardProps) {
+  const isUp   = prediction?.direction === "UP";
+  const isDown = prediction?.direction === "DOWN";
+
   return (
     <section className="rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -17,11 +25,44 @@ export function StockChartCard({ stock }: { stock: StockSnapshot }) {
           <div className={`text-sm ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{formatPercent(stock.changePercent)}</div>
         </div>
       </div>
+
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <Metric label="Volume" value={formatCompactNumber(stock.volume)} />
-        <Metric label="SMA 5" value={formatCurrency(stock.sma5, stock.currency)} />
+        <Metric label="Volume"   value={formatCompactNumber(stock.volume)} />
+        <Metric label="SMA 5"    value={formatCurrency(stock.sma5, stock.currency)} />
         <Metric label="Momentum" value={formatPercent(stock.momentum)} />
       </div>
+
+      {/* ── Tomorrow's target strip ───────────────────────────────────── */}
+      {prediction && (
+        <div className={`mt-4 flex items-center justify-between rounded-2xl border px-4 py-3 ${
+          isUp   ? "border-emerald-400/20 bg-emerald-400/8"
+          : isDown ? "border-rose-400/20 bg-rose-400/8"
+          : "border-amber-400/20 bg-amber-400/8"
+        }`}>
+          <div className="flex items-center gap-2">
+            <span className={`text-2xl font-black leading-none ${isUp ? "text-emerald-300" : isDown ? "text-rose-300" : "text-amber-200"}`}>
+              {isUp ? "↑" : isDown ? "↓" : "→"}
+            </span>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">AI Prediction · Tomorrow</p>
+              <p className={`text-sm font-semibold ${isUp ? "text-emerald-200" : isDown ? "text-rose-200" : "text-amber-100"}`}>
+                {isUp ? "Bullish" : isDown ? "Bearish" : "Neutral"}
+                <span className="ml-1.5 font-normal text-slate-400">· {Math.round(prediction.confidence * 100)}% confidence</span>
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">Target price</p>
+            <p className={`text-lg font-black ${isUp ? "text-emerald-300" : isDown ? "text-rose-300" : "text-amber-200"}`}>
+              ₹{prediction.priceTarget.toFixed(2)}
+            </p>
+            <p className={`text-xs font-semibold ${prediction.priceChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              {prediction.priceChange >= 0 ? "+" : ""}₹{Math.abs(prediction.priceChange).toFixed(2)}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="mt-5 h-72 rounded-3xl border border-white/10 bg-slate-900/70 p-4">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={stock.history} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>

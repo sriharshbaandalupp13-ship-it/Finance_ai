@@ -128,6 +128,63 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
 
         {error ? <section className="rounded-3xl border border-rose-400/20 bg-rose-400/10 p-5 text-rose-100">{error}</section> : null}
 
+        {/* ── Full-width prediction banner ─────────────────────────────── */}
+        {primary && (
+          <section className={`relative overflow-hidden rounded-[28px] border p-6 shadow-2xl ${
+            primary.prediction.direction === "UP"
+              ? "border-emerald-400/25 bg-gradient-to-r from-emerald-950/60 via-slate-950/80 to-slate-950/60 shadow-emerald-950/30"
+              : primary.prediction.direction === "DOWN"
+                ? "border-rose-400/25 bg-gradient-to-r from-rose-950/60 via-slate-950/80 to-slate-950/60 shadow-rose-950/30"
+                : "border-amber-400/25 bg-gradient-to-r from-amber-950/60 via-slate-950/80 to-slate-950/60 shadow-amber-950/30"
+          }`}>
+            {/* Glow orb */}
+            <div className={`pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full blur-3xl ${
+              primary.prediction.direction === "UP" ? "bg-emerald-500/10" : primary.prediction.direction === "DOWN" ? "bg-rose-500/10" : "bg-amber-500/10"
+            }`} />
+            <div className="relative flex flex-wrap items-center justify-between gap-6">
+              {/* Left: label + explanation */}
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.4em] text-slate-400">AI Price Prediction · Tomorrow</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className={`text-4xl font-black ${
+                    primary.prediction.direction === "UP" ? "text-emerald-300" : primary.prediction.direction === "DOWN" ? "text-rose-300" : "text-amber-200"
+                  }`}>
+                    {primary.prediction.direction === "UP" ? "↑" : primary.prediction.direction === "DOWN" ? "↓" : "→"}
+                  </span>
+                  <div>
+                    <p className={`text-lg font-bold ${
+                      primary.prediction.direction === "UP" ? "text-emerald-200" : primary.prediction.direction === "DOWN" ? "text-rose-200" : "text-amber-100"
+                    }`}>
+                      {primary.prediction.direction === "UP" ? "Bullish" : primary.prediction.direction === "DOWN" ? "Bearish" : "Neutral"}
+                      <span className="ml-2 text-sm font-normal text-slate-400">· {Math.round(primary.prediction.confidence * 100)}% confidence</span>
+                    </p>
+                    <p className="mt-0.5 max-w-xl text-sm text-slate-400">{primary.prediction.explanation}</p>
+                  </div>
+                </div>
+              </div>
+              {/* Right: price target */}
+              <div className="flex items-end gap-6">
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Current price</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-300">₹{primary.stock.price?.toFixed(2) ?? "N/A"}</p>
+                </div>
+                <div className="h-10 w-px bg-white/10" />
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Tomorrow&apos;s target</p>
+                  <p className={`mt-1 text-3xl font-black ${
+                    primary.prediction.direction === "UP" ? "text-emerald-300" : primary.prediction.direction === "DOWN" ? "text-rose-300" : "text-amber-200"
+                  }`}>₹{primary.prediction.priceTarget.toFixed(2)}</p>
+                  <p className={`text-base font-bold ${
+                    primary.prediction.priceChange >= 0 ? "text-emerald-400" : "text-rose-400"
+                  }`}>
+                    {primary.prediction.priceChange >= 0 ? "+" : ""}₹{Math.abs(primary.prediction.priceChange).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -196,7 +253,7 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
               ))}
             </div>
           </div>
-          {primary ? <StockChartCard stock={primary.stock} /> : <LoadingCard />}
+          {primary ? <StockChartCard stock={primary.stock} prediction={primary.prediction} /> : <LoadingCard />}
         </section>
 
         {primary && data ? (
