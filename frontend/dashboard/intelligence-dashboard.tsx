@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import type { IntelligenceResponse, ProcessedSignalItem, StockSnapshot } from "@/data/contracts";
 import { resolveCompanyQuery, searchCompanies } from "@/data/watchlist";
+import type { CompanyProfile } from "@/data/contracts";
 import { InsightPanels } from "@/components/insight-panels";
 import { StockChartCard } from "@/components/stock-chart-card";
 import { WorkflowCanvas } from "@/frontend/workflow/workflow-canvas";
@@ -167,11 +168,9 @@ function formatTime(value?: string) {
 }
 
 export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { initialSymbol?: string }) {
-  const [query, setQuery] = useState(initialSymbol);
   const [symbol, setSymbol] = useState(initialSymbol);
   const [refreshTick, setRefreshTick] = useState(0);
   const [autoRefresh, setAutoRefresh] = useState(false);
-  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
   const [activeLens, setActiveLens] = useState<DashboardLens>("overview");
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("all");
   const [signalSort, setSignalSort] = useState<SignalSort>("latest");
@@ -180,7 +179,6 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [activeCraftTier, setActiveCraftTier] = useState<CraftTierId>("tier2");
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
-  const [isLiveSearching, setIsLiveSearching] = useState(false);
   const [data, setData] = useState<IntelligenceResponse | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -227,14 +225,9 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
     return () => window.removeEventListener("mousemove", handlePointerMove);
   }, []);
 
-  const resolvedSelection = useMemo(() => resolveCompanyQuery(query), [query]);
-  const suggestions = useMemo(() => searchCompanies(query, 8), [query]);
   const primary = data?.primary ?? null;
   const comparison = data?.comparison ?? [];
-  const hasTypedQuery = query.trim().length > 0;
-  const invalidDraft = hasTypedQuery && query.trim().length >= 3 && !resolvedSelection && suggestions.length === 0;
-  const canShowMarketData = Boolean(primary) && !invalidDraft;
-  const displayPrimary = canShowMarketData ? primary : null;
+  const displayPrimary = primary;
   const tone = getDirectionTone(displayPrimary?.prediction.direction);
 
   const filteredSignals = useMemo(() => {
@@ -278,55 +271,15 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
     return Math.min(100, Math.round(negativeWeight + eventWeight + volatilityWeight));
   }, [displayPrimary]);
 
-  const liveReadout = invalidDraft
-    ? "No supported company matches that lookup."
-    : displayPrimary
-      ? `${displayPrimary.company.name} is ${getPredictionLabel(displayPrimary.prediction.direction, displayPrimary.prediction.confidence, displayPrimary.prediction.priceChange).toLowerCase()}`
-      : "Loading market intelligence";
+  const liveReadout = displayPrimary
+    ? `${displayPrimary.company.name} is ${getPredictionLabel(displayPrimary.prediction.direction, displayPrimary.prediction.confidence, displayPrimary.prediction.priceChange).toLowerCase()}`
+    : "Loading market intelligence";
   const activeTier = WEBSITE_TIERS.find((tier) => tier.id === activeCraftTier) ?? WEBSITE_TIERS[1];
 
-  useEffect(() => {
-    const trimmedQuery = query.trim();
-    if (trimmedQuery.length < 3 || !resolvedSelection) {
-      setIsLiveSearching(false);
-      return;
-    }
-
-    if (symbol === resolvedSelection.symbol && !error) {
-      setIsLiveSearching(false);
-      return;
-    }
-
-    setIsLiveSearching(true);
-    const timeout = window.setTimeout(() => {
-      setSelectedSignalId(null);
-      setError(null);
-      setSymbol((currentSymbol) => (currentSymbol === resolvedSelection.symbol ? currentSymbol : resolvedSelection.symbol));
-      setIsLiveSearching(false);
-    }, 320);
-
-    return () => window.clearTimeout(timeout);
-  }, [error, query, resolvedSelection, symbol]);
-
   function selectCompany(nextSymbol: string, nextName: string) {
-    setQuery(nextName);
     setSymbol(nextSymbol);
     setSelectedSignalId(null);
     setError(null);
-    setIsSuggestionOpen(false);
-  }
-
-  function submitLookup() {
-    setIsSuggestionOpen(false);
-    if (!resolvedSelection) {
-      setData(null);
-      setError("No supported company matched that lookup. Choose one of the listed companies before analysing.");
-      return;
-    }
-    setQuery(resolvedSelection.name);
-    setSelectedSignalId(null);
-    setError(null);
-    setSymbol(resolvedSelection.symbol);
   }
 
   return (
@@ -466,153 +419,26 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
             </div>
           </div>
 
-          <aside className="rounded-lg border border-white/10 bg-[#091118]/88 p-4 shadow-[0_26px_80px_rgba(0,0,0,0.32)] backdrop-blur">
-            <form
-              className="space-y-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                submitLookup();
-              }}
-            >
-              <div>
-                <div className="flex items-center justify-between gap-3">
-                  <label htmlFor="symbol" className="text-[10px] uppercase tracking-[0.28em] text-cyan-100">
-                    Live lookup
-                  </label>
-                  <span className="text-xs text-slate-500">
-                    {isLiveSearching ? "Loading match..." : `Updated ${formatTime(lastUpdated?.toISOString())}`}
-                  </span>
-                </div>
-                <div className="relative mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_46px]">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                    <input
-                      id="symbol"
-                      value={query}
-                      onChange={(event) => {
-                        setQuery(event.target.value);
-                        setIsSuggestionOpen(true);
-                        if (error) setError(null);
-                      }}
-                      onFocus={() => setIsSuggestionOpen(true)}
-                      onBlur={() => {
-                        window.setTimeout(() => setIsSuggestionOpen(false), 120);
-                      }}
-                      className={cn(
-                        "h-12 w-full min-w-0 rounded-lg border bg-black/28 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:ring-4",
-                        invalidDraft ? "border-rose-300/45 focus:ring-rose-300/10" : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300/10",
-                      )}
-                      placeholder="RELIANCE, TCS, ADANI..."
-                      autoComplete="off"
-                    />
-                    {hasTypedQuery && isSuggestionOpen && suggestions.length ? (
-                      <div className="absolute left-0 right-0 top-[calc(100%+0.45rem)] z-30 overflow-hidden rounded-lg border border-cyan-200/20 bg-[#071018] shadow-[0_22px_70px_rgba(0,0,0,0.55)]">
-                        {suggestions.map((company) => (
-                          <button
-                            key={company.symbol}
-                            type="button"
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              selectCompany(company.symbol, company.name);
-                            }}
-                            className="flex w-full items-center justify-between gap-3 border-b border-white/8 px-4 py-3 text-left transition hover:bg-cyan-300/10 last:border-b-0"
-                          >
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold text-white">{company.name}</div>
-                              <div className="mt-1 truncate text-xs text-slate-400">{company.sector} | {company.exchange}</div>
-                            </div>
-                            <div className="shrink-0 font-mono text-xs font-semibold text-cyan-200">{company.symbol}</div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                  <button
-                    className="inline-flex h-12 items-center justify-center rounded-lg border border-cyan-300/35 bg-cyan-200 text-slate-950 transition hover:bg-cyan-100 disabled:border-white/10 disabled:bg-slate-700 disabled:text-slate-400"
-                    type="submit"
-                    disabled={loading && symbol === resolvedSelection?.symbol}
-                    title="Analyse selected company"
-                  >
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                  </button>
-                </div>
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Type at least 3 characters and the best supported match will load automatically.
-                </p>
-                {invalidDraft ? (
-                  <p className="mt-2 rounded-lg border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
-                    No supported company matches this text. Pick a result or try a listed symbol.
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {PRESETS.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className={cn(
-                      "min-h-11 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition",
-                      symbol === preset
-                        ? "border-emerald-300/35 bg-emerald-300/12 text-emerald-100"
-                        : "border-white/10 bg-white/[0.04] text-slate-400 hover:border-cyan-300/25 hover:text-white",
-                    )}
-                    onClick={() => selectCompany(preset, PRESET_LABELS[preset])}
-                  >
-                    {PRESET_LABELS[preset]}
-                  </button>
-                ))}
-              </div>
-
-              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-                <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-slate-500">
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Signal controls
-                </div>
-                <div className="grid gap-3">
-                  <label className="flex items-center justify-between gap-3 text-sm text-slate-300">
-                    Compact feed
-                    <input
-                      type="checkbox"
-                      checked={compactMode}
-                      onChange={(event) => setCompactMode(event.target.checked)}
-                      className="h-4 w-4 accent-cyan-300"
-                    />
-                  </label>
-                  <div>
-                    <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-                      <span>Min confidence</span>
-                      <span className="font-mono text-cyan-100">{minConfidence}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={95}
-                      step={5}
-                      value={minConfidence}
-                      onChange={(event) => setMinConfidence(Number(event.target.value))}
-                      className="w-full accent-cyan-300"
-                    />
-                  </div>
-                  <select
-                    value={signalSort}
-                    onChange={(event) => setSignalSort(event.target.value as SignalSort)}
-                    className="h-10 rounded-lg border border-white/10 bg-[#071018] px-3 text-sm text-slate-200 outline-none focus:border-cyan-300"
-                  >
-                    <option value="latest">Latest first</option>
-                    <option value="confidence">Highest confidence</option>
-                    <option value="impact">Highest impact</option>
-                  </select>
-                </div>
-              </div>
-            </form>
-          </aside>
+          <LookupPanel
+            activeSymbol={symbol}
+            compactMode={compactMode}
+            error={error}
+            lastUpdated={lastUpdated}
+            loading={loading}
+            minConfidence={minConfidence}
+            signalSort={signalSort}
+            onCompactModeChange={setCompactMode}
+            onErrorClear={() => setError(null)}
+            onMinConfidenceChange={setMinConfidence}
+            onSelectCompany={selectCompany}
+            onSignalSortChange={setSignalSort}
+          />
         </section>
 
         <WebsiteCraftSection activeTier={activeTier} activeTierId={activeCraftTier} onSelectTier={setActiveCraftTier} />
 
-        {(error || invalidDraft) && !displayPrimary ? (
-          <NoMatchState query={query} message={error ?? "No supported company matches that lookup."} suggestions={suggestions} onSelect={selectCompany} />
+        {error && !displayPrimary ? (
+          <NoMatchState query={symbol} message={error} suggestions={[]} onSelect={selectCompany} />
         ) : null}
 
         {displayPrimary ? (
@@ -698,7 +524,7 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
               )
             ) : null}
           </>
-        ) : !error && !invalidDraft ? (
+        ) : !error ? (
           <LoadingCard />
         ) : null}
       </div>
@@ -822,6 +648,228 @@ function WebsiteCraftSection({
         </div>
       </aside>
     </section>
+  );
+}
+
+function LookupPanel({
+  activeSymbol,
+  compactMode,
+  error,
+  lastUpdated,
+  loading,
+  minConfidence,
+  signalSort,
+  onCompactModeChange,
+  onErrorClear,
+  onMinConfidenceChange,
+  onSelectCompany,
+  onSignalSortChange,
+}: {
+  activeSymbol: string;
+  compactMode: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+  loading: boolean;
+  minConfidence: number;
+  signalSort: SignalSort;
+  onCompactModeChange: (value: boolean) => void;
+  onErrorClear: () => void;
+  onMinConfidenceChange: (value: number) => void;
+  onSelectCompany: (symbol: string, name: string) => void;
+  onSignalSortChange: (value: SignalSort) => void;
+}) {
+  const activePresetLabel = PRESET_LABELS[activeSymbol] ?? activeSymbol.replace(".BSE", "");
+  const [draftQuery, setDraftQuery] = useState(activePresetLabel);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
+  const [isLiveSearching, setIsLiveSearching] = useState(false);
+  const deferredQuery = useDeferredValue(draftQuery);
+  const resolvedSelection = useMemo(() => resolveCompanyQuery(deferredQuery), [deferredQuery]);
+  const suggestions = useMemo(() => searchCompanies(deferredQuery, 8), [deferredQuery]);
+  const hasTypedQuery = deferredQuery.trim().length > 0;
+  const invalidDraft = hasTypedQuery && deferredQuery.trim().length >= 3 && !resolvedSelection && suggestions.length === 0;
+
+  useEffect(() => {
+    if (isFocused) return;
+    setDraftQuery(activePresetLabel);
+  }, [activePresetLabel, isFocused]);
+
+  useEffect(() => {
+    const trimmedQuery = deferredQuery.trim();
+    if (trimmedQuery.length < 3 || !resolvedSelection) {
+      setIsLiveSearching(false);
+      return;
+    }
+
+    if (activeSymbol === resolvedSelection.symbol && !error) {
+      setIsLiveSearching(false);
+      return;
+    }
+
+    setIsLiveSearching(true);
+    const timeout = window.setTimeout(() => {
+      onErrorClear();
+      onSelectCompany(resolvedSelection.symbol, resolvedSelection.name);
+      setIsLiveSearching(false);
+    }, 280);
+
+    return () => window.clearTimeout(timeout);
+  }, [activeSymbol, deferredQuery, error, onErrorClear, onSelectCompany, resolvedSelection]);
+
+  function applySelection(company: CompanyProfile) {
+    setDraftQuery(company.name);
+    setIsSuggestionOpen(false);
+    setIsLiveSearching(false);
+    onErrorClear();
+    onSelectCompany(company.symbol, company.name);
+  }
+
+  function submitLookup(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!resolvedSelection) return;
+    applySelection(resolvedSelection);
+  }
+
+  return (
+    <aside className="rounded-lg border border-white/10 bg-[#091118]/88 p-4 shadow-[0_26px_80px_rgba(0,0,0,0.32)] backdrop-blur">
+      <form className="space-y-4" onSubmit={submitLookup}>
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="symbol" className="text-[10px] uppercase tracking-[0.28em] text-cyan-100">
+              Live lookup
+            </label>
+            <span className="text-xs text-slate-500">
+              {isLiveSearching ? "Loading match..." : `Updated ${formatTime(lastUpdated?.toISOString())}`}
+            </span>
+          </div>
+          <div className="relative mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_46px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input
+                id="symbol"
+                value={draftQuery}
+                onChange={(event) => {
+                  setDraftQuery(event.target.value);
+                  setIsSuggestionOpen(true);
+                  if (error) onErrorClear();
+                }}
+                onFocus={() => {
+                  setIsFocused(true);
+                  setIsSuggestionOpen(true);
+                }}
+                onBlur={() => {
+                  setIsFocused(false);
+                  window.setTimeout(() => setIsSuggestionOpen(false), 120);
+                }}
+                className={cn(
+                  "h-12 w-full min-w-0 rounded-lg border bg-black/28 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:ring-4",
+                  invalidDraft ? "border-rose-300/45 focus:ring-rose-300/10" : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300/10",
+                )}
+                placeholder="RELIANCE, TCS, ADANI..."
+                autoComplete="off"
+              />
+              {hasTypedQuery && isSuggestionOpen && suggestions.length ? (
+                <div className="absolute left-0 right-0 top-[calc(100%+0.45rem)] z-30 overflow-hidden rounded-lg border border-cyan-200/20 bg-[#071018] shadow-[0_22px_70px_rgba(0,0,0,0.55)]">
+                  {suggestions.map((company) => (
+                    <button
+                      key={company.symbol}
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        applySelection(company);
+                      }}
+                      className="flex w-full items-center justify-between gap-3 border-b border-white/8 px-4 py-3 text-left transition hover:bg-cyan-300/10 last:border-b-0"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-white">{company.name}</div>
+                        <div className="mt-1 truncate text-xs text-slate-400">{company.sector} | {company.exchange}</div>
+                      </div>
+                      <div className="shrink-0 font-mono text-xs font-semibold text-cyan-200">{company.symbol}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <button
+              className="inline-flex h-12 items-center justify-center rounded-lg border border-cyan-300/35 bg-cyan-200 text-slate-950 transition hover:bg-cyan-100 disabled:border-white/10 disabled:bg-slate-700 disabled:text-slate-400"
+              type="submit"
+              disabled={loading && activeSymbol === resolvedSelection?.symbol}
+              title="Analyse selected company"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+            </button>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Type at least 3 characters and the best supported match will load automatically.
+          </p>
+          {invalidDraft ? (
+            <p className="mt-2 rounded-lg border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
+              No supported company matches this text. Pick a result or try a listed symbol.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              className={cn(
+                "min-h-11 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition",
+                activeSymbol === preset
+                  ? "border-emerald-300/35 bg-emerald-300/12 text-emerald-100"
+                  : "border-white/10 bg-white/[0.04] text-slate-400 hover:border-cyan-300/25 hover:text-white",
+              )}
+              onClick={() => applySelection({ symbol: preset, name: PRESET_LABELS[preset], exchange: "BSE", sector: "Preset" })}
+            >
+              {PRESET_LABELS[preset]}
+            </button>
+          ))}
+        </div>
+
+        <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+          <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-slate-500">
+            <SlidersHorizontal className="h-4 w-4" />
+            Signal controls
+          </div>
+          <div className="grid gap-3">
+            <label className="flex items-center justify-between gap-3 text-sm text-slate-300">
+              Compact feed
+              <input
+                type="checkbox"
+                checked={compactMode}
+                onChange={(event) => onCompactModeChange(event.target.checked)}
+                className="h-4 w-4 accent-cyan-300"
+              />
+            </label>
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                <span>Min confidence</span>
+                <span className="font-mono text-cyan-100">{minConfidence}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={95}
+                step={5}
+                value={minConfidence}
+                onChange={(event) => onMinConfidenceChange(Number(event.target.value))}
+                className="w-full accent-cyan-300"
+              />
+            </div>
+            <select
+              value={signalSort}
+              onChange={(event) => onSignalSortChange(event.target.value as SignalSort)}
+              className="h-10 rounded-lg border border-white/10 bg-[#071018] px-3 text-sm text-slate-200 outline-none focus:border-cyan-300"
+            >
+              <option value="latest">Latest first</option>
+              <option value="confidence">Highest confidence</option>
+              <option value="impact">Highest impact</option>
+            </select>
+          </div>
+        </div>
+      </form>
+    </aside>
   );
 }
 
