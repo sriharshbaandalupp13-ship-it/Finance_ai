@@ -60,6 +60,12 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
   const mentionMeter = useMemo(() => (primary ? Math.min(100, primary.sentiment.mentionVolume * 7) : 0), [primary]);
   const resolvedSelection = useMemo(() => resolveCompanyQuery(query), [query]);
 
+  function selectResolvedCompany() {
+    if (!resolvedSelection) return;
+    setQuery(resolvedSelection.name.toUpperCase());
+    setSymbol(resolvedSelection.symbol);
+  }
+
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8fbff_0%,#eef8ff_38%,#f7fffb_100%)] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -106,9 +112,15 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                   </div>
                 </div>
                 {query.trim() && resolvedSelection ? (
-                  <p className="text-xs text-slate-500">
-                    Matched to <span className="font-semibold text-slate-800">{resolvedSelection.name}</span> ({resolvedSelection.symbol})
-                  </p>
+                  <button
+                    type="button"
+                    onClick={selectResolvedCompany}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-left text-xs text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
+                  >
+                    <span className="uppercase tracking-[0.22em] text-sky-500">Matched</span>
+                    <span className="font-semibold text-slate-800">{resolvedSelection.name}</span>
+                    <span className="text-slate-500">({resolvedSelection.symbol})</span>
+                  </button>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
                   {PRESETS.map((preset) => (
