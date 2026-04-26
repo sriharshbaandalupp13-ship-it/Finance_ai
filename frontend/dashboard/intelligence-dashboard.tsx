@@ -2,31 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { IntelligenceResponse } from "@/data/contracts";
+import { resolveCompanyQuery } from "@/data/watchlist";
 import { InsightPanels } from "@/components/insight-panels";
 import { StockChartCard } from "@/components/stock-chart-card";
 import { WorkflowCanvas } from "@/frontend/workflow/workflow-canvas";
-import { formatCompactNumber, formatCurrency, formatPercent } from "@/utils/format";
+import { formatCompactNumber, formatPercent, formatSignedRupees } from "@/utils/format";
 
-const PRESETS = ["RELIANCE.BSE", "TCS.BSE", "HDFCBANK.BSE", "INFY.BSE", "ICICIBANK.BSE"];
+const PRESETS = ["RELIANCE.BSE", "TCS.BSE", "TATAMOTORS.BSE", "TATASTEEL.BSE", "HDFCBANK.BSE"];
 
 const PRESET_LABELS: Record<string, string> = {
-  "RELIANCE.BSE": "RELIANCE",
+  "RELIANCE.BSE": "Reliance",
   "TCS.BSE": "TCS",
-  "HDFCBANK.BSE": "HDFC",
-  "INFY.BSE": "INFY",
-  "ICICIBANK.BSE": "ICICI",
+  "TATAMOTORS.BSE": "Tata Motors",
+  "TATASTEEL.BSE": "Tata Steel",
+  "HDFCBANK.BSE": "HDFC Bank",
 };
 
-function getPredictionLabel(direction: string, confidence: number) {
+function getPredictionLabel(direction: string, confidence: number, priceChange: number) {
   const pct = Math.round(confidence * 100);
-  if (direction === "UP") return `Bullish · ${pct}% confidence`;
-  if (direction === "DOWN") return `Bearish · ${pct}% confidence`;
-  return `Neutral · ${pct}% confidence`;
-}
-
-function formatPriceChange(change: number) {
-  const sign = change >= 0 ? "+" : "";
-  return `${sign}₹${Math.abs(change).toFixed(2)}`;
+  if (direction === "UP") return `Bullish · ${formatSignedRupees(priceChange)} · ${pct}% confidence`;
+  if (direction === "DOWN") return `Bearish · ${formatSignedRupees(priceChange)} · ${pct}% confidence`;
+  return `Neutral · ${formatSignedRupees(priceChange)} · ${pct}% confidence`;
 }
 
 export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { initialSymbol?: string }) {
@@ -61,51 +57,65 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
 
   const comparison = data?.comparison ?? [];
   const primary = data?.primary;
-  const mentionMeter = useMemo(() => primary ? Math.min(100, primary.sentiment.mentionVolume * 7) : 0, [primary]);
+  const mentionMeter = useMemo(() => (primary ? Math.min(100, primary.sentiment.mentionVolume * 7) : 0), [primary]);
+  const resolvedSelection = useMemo(() => resolveCompanyQuery(query), [query]);
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.14),transparent_28%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),transparent_26%),linear-gradient(180deg,#020617,#0f172a_45%,#020617)] px-4 py-6 text-slate-50 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <section className="overflow-hidden rounded-[34px] border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/40">
-          <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f8fbff_0%,#eef8ff_38%,#f7fffb_100%)] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+        <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/82 p-6 shadow-[0_30px_90px_rgba(148,163,184,0.18)] backdrop-blur">
+          <div className="grid gap-8 xl:grid-cols-[1.3fr_0.9fr]">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.4em] text-cyan-300">Indian Market AI Intelligence</p>
-              <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
-                BSE & NSE market intelligence with Gemini-driven sentiment, prediction, and chain-reaction analysis.
+              <p className="text-[11px] uppercase tracking-[0.38em] text-sky-600">Indian Market Intelligence</p>
+              <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
+                Brighter stock intelligence with next-day price targets, sentiment, and relationship mapping.
               </h1>
-              <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-                Track top Indian companies across IT, Banking, Telecom, FMCG and Conglomerates. Multi-source news aggregation with AI-powered sentiment scoring and stock prediction.
+              <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+                Search Indian companies by name or symbol, inspect tomorrow&apos;s predicted move, and explore how peers, suppliers, and competitors may react.
               </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <HeroStat label="Coverage" value="News + Social + Market" />
+                <HeroStat label="Prediction Horizon" value="Next trading day" />
+                <HeroStat label="Graph Mode" value="Interactive links" />
+              </div>
             </div>
-            <div className="rounded-[30px] border border-white/10 bg-white/5 p-5">
+
+            <div className="rounded-[28px] border border-slate-200 bg-slate-50/90 p-5">
               <form
                 className="space-y-4"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  setSymbol(query.trim().toUpperCase() || "RELIANCE.BSE");
+                  setSymbol(resolvedSelection?.symbol ?? (query.trim().toUpperCase() || "RELIANCE.BSE"));
                 }}
               >
                 <div>
-                  <label htmlFor="symbol" className="text-[11px] uppercase tracking-[0.35em] text-cyan-300">Lookup symbol</label>
+                  <label htmlFor="symbol" className="text-[11px] uppercase tracking-[0.35em] text-sky-600">
+                    Lookup company or symbol
+                  </label>
                   <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                     <input
                       id="symbol"
                       value={query}
                       onChange={(event) => setQuery(event.target.value.toUpperCase())}
-                      className="flex-1 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none ring-0 placeholder:text-slate-500"
-                      placeholder="RELIANCE.BSE"
+                      className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                      placeholder="TATA MOTORS or RELIANCE.BSE"
                     />
-                    <button className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200" type="submit">
+                    <button className="rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-500" type="submit">
                       Analyse
                     </button>
                   </div>
                 </div>
+                {query.trim() && resolvedSelection ? (
+                  <p className="text-xs text-slate-500">
+                    Matched to <span className="font-semibold text-slate-800">{resolvedSelection.name}</span> ({resolvedSelection.symbol})
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   {PRESETS.map((preset) => (
                     <button
                       key={preset}
                       type="button"
-                      className={`rounded-full border px-4 py-2 text-xs font-semibold tracking-[0.25em] ${symbol === preset ? "border-cyan-300 bg-cyan-300/15 text-cyan-200" : "border-white/10 bg-white/5 text-slate-300"}`}
+                      className={`rounded-full border px-4 py-2 text-xs font-semibold ${symbol === preset ? "border-sky-500 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-600"}`}
                       onClick={() => {
                         setQuery(preset);
                         setSymbol(preset);
@@ -116,148 +126,134 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                   ))}
                 </div>
               </form>
+
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <TopMetric label="Mentions" value={primary ? String(primary.sentiment.mentionVolume) : loading ? "..." : "0"} />
-                <TopMetric label="Prediction" value={primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence) : loading ? "..." : "N/A"} />
-                <TopMetric label="Price (INR)" value={primary ? formatCurrency(primary.stock.price, "INR") : loading ? "..." : "N/A"} />
+                <TopMetric label="Prediction" value={primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence, primary.prediction.priceChange) : loading ? "..." : "N/A"} />
+                <TopMetric label="Tomorrow move" value={primary ? formatSignedRupees(primary.prediction.priceChange) : loading ? "..." : "N/A"} />
                 <TopMetric label="Tomorrow target" value={primary ? `₹${primary.prediction.priceTarget.toFixed(2)}` : loading ? "..." : "N/A"} />
               </div>
             </div>
           </div>
         </section>
 
-        {error ? <section className="rounded-3xl border border-rose-400/20 bg-rose-400/10 p-5 text-rose-100">{error}</section> : null}
+        {error ? (
+          <section className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-rose-700 shadow-[0_20px_50px_rgba(251,113,133,0.12)]">
+            {error}
+          </section>
+        ) : null}
 
-        {/* ── Full-width prediction banner ─────────────────────────────── */}
         {primary && (
-          <section className={`relative overflow-hidden rounded-[28px] border p-6 shadow-2xl ${
+          <section className={`rounded-[28px] border p-6 shadow-[0_30px_80px_rgba(148,163,184,0.16)] ${
             primary.prediction.direction === "UP"
-              ? "border-emerald-400/25 bg-gradient-to-r from-emerald-950/60 via-slate-950/80 to-slate-950/60 shadow-emerald-950/30"
+              ? "border-emerald-200 bg-[linear-gradient(135deg,#f0fdf4,#ffffff_55%,#ecfeff)]"
               : primary.prediction.direction === "DOWN"
-                ? "border-rose-400/25 bg-gradient-to-r from-rose-950/60 via-slate-950/80 to-slate-950/60 shadow-rose-950/30"
-                : "border-amber-400/25 bg-gradient-to-r from-amber-950/60 via-slate-950/80 to-slate-950/60 shadow-amber-950/30"
+                ? "border-rose-200 bg-[linear-gradient(135deg,#fff1f2,#ffffff_55%,#f8fafc)]"
+                : "border-amber-200 bg-[linear-gradient(135deg,#fffbeb,#ffffff_55%,#f0fdf4)]"
           }`}>
-            {/* Glow orb */}
-            <div className={`pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full blur-3xl ${
-              primary.prediction.direction === "UP" ? "bg-emerald-500/10" : primary.prediction.direction === "DOWN" ? "bg-rose-500/10" : "bg-amber-500/10"
-            }`} />
-            <div className="relative flex flex-wrap items-center justify-between gap-6">
-              {/* Left: label + explanation */}
+            <div className="flex flex-wrap items-center justify-between gap-6">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.4em] text-slate-400">AI Price Prediction · Tomorrow</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <span className={`text-4xl font-black ${
-                    primary.prediction.direction === "UP" ? "text-emerald-300" : primary.prediction.direction === "DOWN" ? "text-rose-300" : "text-amber-200"
+                <p className="text-[11px] uppercase tracking-[0.38em] text-slate-500">AI Price Prediction · Tomorrow</p>
+                <div className="mt-3 flex items-center gap-4">
+                  <span className={`text-5xl font-black ${
+                    primary.prediction.direction === "UP" ? "text-emerald-600" : primary.prediction.direction === "DOWN" ? "text-rose-600" : "text-amber-600"
                   }`}>
                     {primary.prediction.direction === "UP" ? "↑" : primary.prediction.direction === "DOWN" ? "↓" : "→"}
                   </span>
                   <div>
-                    <p className={`text-lg font-bold ${
-                      primary.prediction.direction === "UP" ? "text-emerald-200" : primary.prediction.direction === "DOWN" ? "text-rose-200" : "text-amber-100"
-                    }`}>
+                    <p className="text-2xl font-semibold text-slate-950">
                       {primary.prediction.direction === "UP" ? "Bullish" : primary.prediction.direction === "DOWN" ? "Bearish" : "Neutral"}
-                      <span className="ml-2 text-sm font-normal text-slate-400">· {Math.round(primary.prediction.confidence * 100)}% confidence</span>
+                      <span className="ml-3 text-sm font-medium text-slate-500">
+                        {Math.round(primary.prediction.confidence * 100)}% confidence
+                      </span>
                     </p>
-                    <p className="mt-0.5 max-w-xl text-sm text-slate-400">{primary.prediction.explanation}</p>
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">{primary.prediction.explanation}</p>
                   </div>
                 </div>
               </div>
-              {/* Right: price target */}
-              <div className="flex items-end gap-6">
-                <div className="text-right">
-                  <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Current price</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-300">₹{primary.stock.price?.toFixed(2) ?? "N/A"}</p>
-                </div>
-                <div className="h-10 w-px bg-white/10" />
-                <div className="text-right">
-                  <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">Tomorrow&apos;s target</p>
-                  <p className={`mt-1 text-3xl font-black ${
-                    primary.prediction.direction === "UP" ? "text-emerald-300" : primary.prediction.direction === "DOWN" ? "text-rose-300" : "text-amber-200"
-                  }`}>₹{primary.prediction.priceTarget.toFixed(2)}</p>
-                  <p className={`text-base font-bold ${
-                    primary.prediction.priceChange >= 0 ? "text-emerald-400" : "text-rose-400"
-                  }`}>
-                    {primary.prediction.priceChange >= 0 ? "+" : ""}₹{Math.abs(primary.prediction.priceChange).toFixed(2)}
-                  </p>
-                </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <PredictionTile label="Current price" value={`₹${primary.stock.price?.toFixed(2) ?? "N/A"}`} accent="slate" />
+                <PredictionTile label="Tomorrow target" value={`₹${primary.prediction.priceTarget.toFixed(2)}`} accent="sky" />
+                <PredictionTile label="Expected move" value={formatSignedRupees(primary.prediction.priceChange)} accent={primary.prediction.priceChange >= 0 ? "emerald" : "rose"} />
+                <PredictionTile label="Signal profile" value={getPredictionLabel(primary.prediction.direction, primary.prediction.confidence, primary.prediction.priceChange)} accent="amber" />
               </div>
             </div>
           </section>
         )}
 
         <section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30">
+          <div className="rounded-[28px] border border-white/70 bg-white/88 p-5 shadow-[0_24px_60px_rgba(148,163,184,0.16)] backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.35em] text-cyan-300">Company intelligence</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">
+                <p className="text-[11px] uppercase tracking-[0.35em] text-sky-600">Company intelligence</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-950">
                   {primary ? `${primary.company.name} (${primary.company.symbol})` : loading ? "Loading..." : "No data"}
                 </h2>
-                <p className="mt-1 text-xs text-slate-400">{primary ? `${primary.company.sector} | ${primary.company.exchange}` : ""}</p>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{primary?.whyMoving ?? "Fetching AI-generated explanation of the latest price move."}</p>
+                <p className="mt-1 text-sm text-slate-500">{primary ? `${primary.company.sector} · ${primary.company.exchange}` : ""}</p>
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
+                  {primary?.whyMoving ?? "Fetching AI-generated explanation of the latest price move."}
+                </p>
               </div>
-              {/* Prediction block: direction pill + price target */}
+
               <div className="flex flex-col items-end gap-2">
                 <div className={`rounded-full border px-4 py-2 text-sm font-semibold ${
                   primary?.prediction.direction === "UP"
-                    ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                     : primary?.prediction.direction === "DOWN"
-                      ? "border-rose-300/30 bg-rose-300/10 text-rose-200"
-                      : "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                      ? "border-rose-200 bg-rose-50 text-rose-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700"
                 }`}>
-                  {primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence) : "Waiting"}
+                  {primary ? getPredictionLabel(primary.prediction.direction, primary.prediction.confidence, primary.prediction.priceChange) : "Waiting"}
                 </div>
-                {/* Tomorrow's price target */}
                 {primary && (
-                  <div className={`rounded-2xl border px-4 py-3 text-right ${
-                    primary.prediction.direction === "UP"
-                      ? "border-emerald-400/20 bg-emerald-400/8"
-                      : primary.prediction.direction === "DOWN"
-                        ? "border-rose-400/20 bg-rose-400/8"
-                        : "border-amber-400/20 bg-amber-400/8"
-                  }`}>
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">Tomorrow&apos;s target</p>
-                    <p className="mt-1 text-xl font-bold text-white">₹{primary.prediction.priceTarget.toFixed(2)}</p>
-                    <p className={`text-sm font-semibold ${
-                      primary.prediction.priceChange >= 0 ? "text-emerald-300" : "text-rose-300"
-                    }`}>
-                      {formatPriceChange(primary.prediction.priceChange)}
+                  <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-right">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-sky-700">Tomorrow&apos;s target</p>
+                    <p className="mt-1 text-xl font-bold text-slate-950">₹{primary.prediction.priceTarget.toFixed(2)}</p>
+                    <p className={`text-sm font-semibold ${primary.prediction.priceChange >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                      {formatSignedRupees(primary.prediction.priceChange)}
                     </p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-4">
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <FeatureCard label="Sentiment score" value={primary ? `${primary.sentiment.score}/100` : "..."} detail={`Trend ${primary ? primary.sentiment.trend.toFixed(1) : "0"}`} />
               <FeatureCard label="Day move" value={primary ? formatPercent(primary.stock.changePercent) : "..."} detail={`Price INR ${primary?.stock.price?.toFixed(2) ?? "..."}`} />
+              <FeatureCard label="Tomorrow target" value={primary ? `INR ${primary.prediction.priceTarget.toFixed(2)}` : "..."} detail={primary ? `Expected move ${formatSignedRupees(primary.prediction.priceChange)}` : "..."} />
               <FeatureCard label="Event pressure" value={primary ? String(primary.sentiment.highImpactCount) : "..."} detail="High-impact catalysts" />
               <FeatureCard label="Mention heat" value={`${mentionMeter}%`} detail="News and social volume" />
             </div>
 
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {comparison.map((stock) => (
-                <article key={stock.symbol} className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-4">
-                  {/* Ticker on its own full-width line — no competing badge */}
-                  <div className="truncate text-sm font-bold text-white">{stock.symbol.replace(".BSE", "")}</div>
-                  {/* Company name + % badge on the next line — name truncates, badge never overlaps */}
+                <article key={stock.symbol} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(148,163,184,0.16)]">
+                  <div className="truncate text-sm font-bold text-slate-900">{stock.symbol.replace(".BSE", "")}</div>
                   <div className="mt-0.5 flex items-center justify-between gap-2">
-                    <div className="truncate text-xs text-slate-400">{stock.name}</div>
-                    <span className={`shrink-0 whitespace-nowrap text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-200" : "text-rose-200"}`}>
+                    <div className="truncate text-xs text-slate-500">{stock.name}</div>
+                    <span className={`shrink-0 whitespace-nowrap text-xs font-semibold ${stock.changePercent !== null && stock.changePercent >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
                       {formatPercent(stock.changePercent)}
                     </span>
                   </div>
-                  <div className="mt-3 text-lg font-semibold text-white">INR {stock.price?.toFixed(2) ?? "N/A"}</div>
-                  <div className="mt-1 text-xs text-slate-400">Volume {formatCompactNumber(stock.volume)}</div>
+                  <div className="mt-3 text-lg font-semibold text-slate-950">INR {stock.price?.toFixed(2) ?? "N/A"}</div>
+                  <div className="mt-1 text-xs text-slate-500">Volume {formatCompactNumber(stock.volume)}</div>
                 </article>
               ))}
             </div>
           </div>
+
           {primary ? <StockChartCard stock={primary.stock} prediction={primary.prediction} /> : <LoadingCard />}
         </section>
 
         {primary && data ? (
-          <WorkflowCanvas workflow={data.workflow} symbol={primary.company.symbol} relations={primary.relations} />
+          <WorkflowCanvas
+            workflow={data.workflow}
+            symbol={primary.company.symbol}
+            companyName={primary.company.name}
+            priceTarget={primary.prediction.priceTarget}
+            relations={primary.relations}
+          />
         ) : (
           <LoadingCard />
         )}
@@ -279,25 +275,59 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
   );
 }
 
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 shadow-[0_12px_30px_rgba(148,163,184,0.12)]">
+      <div className="text-[10px] uppercase tracking-[0.3em] text-slate-500">{label}</div>
+      <div className="mt-2 text-sm font-semibold text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function PredictionTile({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent: "slate" | "sky" | "emerald" | "rose" | "amber";
+}) {
+  const tones = {
+    slate: "border-slate-200 bg-white text-slate-900",
+    sky: "border-sky-200 bg-sky-50 text-sky-900",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    rose: "border-rose-200 bg-rose-50 text-rose-900",
+    amber: "border-amber-200 bg-amber-50 text-amber-900",
+  } as const;
+
+  return (
+    <div className={`min-w-[180px] rounded-2xl border px-4 py-3 ${tones[accent]}`}>
+      <div className="text-[10px] uppercase tracking-[0.28em] opacity-70">{label}</div>
+      <div className="mt-2 text-sm font-semibold">{value}</div>
+    </div>
+  );
+}
+
 function TopMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-      <div className="text-[11px] uppercase tracking-[0.32em] text-slate-400">{label}</div>
-      <div className="mt-2 text-lg font-semibold text-white">{value}</div>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(148,163,184,0.1)]">
+      <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500">{label}</div>
+      <div className="mt-2 text-base font-semibold text-slate-950">{value}</div>
     </div>
   );
 }
 
 function FeatureCard({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="min-h-[2rem] text-[11px] uppercase leading-tight tracking-[0.2em] text-slate-400">{label}</div>
-      <div className="mt-2 text-xl font-semibold text-white">{value}</div>
-      <div className="min-h-[2.5rem] mt-1 text-sm leading-snug text-slate-400">{detail}</div>
+    <div className="flex flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="min-h-[2rem] text-[11px] uppercase leading-tight tracking-[0.2em] text-slate-500">{label}</div>
+      <div className="mt-2 text-xl font-semibold text-slate-950">{value}</div>
+      <div className="mt-1 min-h-[2.5rem] text-sm leading-snug text-slate-600">{detail}</div>
     </div>
   );
 }
 
 function LoadingCard() {
-  return <div className="h-72 rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30" />;
+  return <div className="h-72 rounded-[28px] border border-white/70 bg-white/85 shadow-[0_24px_60px_rgba(148,163,184,0.16)]" />;
 }

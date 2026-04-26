@@ -22,59 +22,114 @@ const PredictionSchema = z.object({
   direction: z.enum(["UP", "DOWN", "NEUTRAL"]),
   confidence: z.number().min(0).max(1),
   explanation: z.string(),
-  priceChangePct: z.number(), // expected % move (positive = up, negative = down)
+  priceChangePct: z.number(),
 });
 
-// ---------------------------------------------------------------------------
-// Price-target algorithm
-//
-// Uses a multi-factor model that mirrors techniques used by quant desks:
-//   1. ATR (Average True Range) — measures the stock's typical daily volatility
-//   2. Sentiment multiplier     — amplifies / dampens move based on news score
-//   3. Momentum factor          — recent trend bias (last 5 vs last 20 closes)
-//   4. Confidence scaling       — caps the move when AI is less certain
-// ---------------------------------------------------------------------------
-function computePriceTarget(
-  currentPrice: number,
-  history: StockPoint[],
-  direction: "UP" | "DOWN" | "NEUTRAL",
-  sentimentScore: number,   // 0-100
-  confidence: number,       // 0-1
-): { priceChange: number; priceTarget: number } {
+function average(values: number[]) {
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function formatSignedRupees(value: number) {
+  return `${value >= 0 ? "+" : "-"}₹${Math.abs(value).toFixed(2)}`;
+}
+
+function computeTomorrowProjection(input: {
+  currentPrice: number;
+  history: StockPoint[];
+  directionHint: "UP" | "DOWN" | "NEUTRAL";
+  sentimentScore: number;
+  trend: number;
+  mentionVolume: number;
+  confidence: number;
+  aiMovePct?: number | null;
+}): { direction: "UP" | "DOWN" | "NEUTRAL"; priceChange: number; priceTarget: number } {
+  const {
+    currentPrice,
+    history,
+    directionHint,
+    sentimentScore,
+    trend,
+    mentionVolume,
+    confidence,
+    aiMovePct,
+  } = input;
+
   if (!currentPrice || history.length < 2) {
-    return { priceChange: 0, priceTarget: currentPrice ?? 0 };
+    return { direction: "NEUTRAL", priceChange: 0, priceTarget: currentPrice ?? 0 };
   }
 
-  // 1. Average True Range over last 14 sessions (daily high-low proxy via close-to-close)
-  const closes = history.map((p) => p.close);
-  const trueRanges = closes.slice(1).map((c, i) => Math.abs(c - closes[i]));
-  const atrWindow = Math.min(14, trueRanges.length);
-  const atr = trueRanges.slice(-atrWindow).reduce((sum, v) => sum + v, 0) / atrWindow;
+  const closes = history.map((point) => point.close);
+  const dailyMoves = closes.slice(1).map((close, index) => close - closes[index]);
+  const absDailyMoves = dailyMoves.map((move) => Math.abs(move));
+  const dailyReturns = closes
+    .slice(1)
+    .map((close, index) => (closes[index] ? (close - closes[index]) / closes[index] : 0));
 
-  // 2. Sentiment multiplier: neutral = 1.0, strong positive/negative = up to 1.6
-  //    Sentiment score is 0-100, neutral centre is 50.
-  const sentimentStrength = Math.abs(sentimentScore - 50) / 50; // 0-1
-  const sentimentMultiplier = 1.0 + sentimentStrength * 0.6;    // 1.0 – 1.6
+  const atr = average(absDailyMoves.slice(-14));
+  const realizedVolPct = average(dailyReturns.slice(-10).map((value) => Math.abs(value)));
+  const volatilityFloorPct = currentPrice > 0 ? atr / currentPrice : 0;
+  const baseVolatilityPct = clamp(Math.max(realizedVolPct, volatilityFloorPct, 0.004), 0.004, 0.06);
 
-  // 3. Short-term momentum: compare SMA-5 vs SMA-20 (or available history)
-  const sma5  = closes.slice(-5).reduce((s, v) => s + v, 0) / Math.min(5, closes.length);
-  const sma20 = closes.slice(-20).reduce((s, v) => s + v, 0) / Math.min(20, closes.length);
-  const momentumBias = sma5 > sma20 ? 1.1 : sma5 < sma20 ? 0.9 : 1.0;
+  const sma5 = average(closes.slice(-5));
+  const sma20 = average(closes.slice(-20));
+  const momentumBias = sma20 ? clamp((sma5 - sma20) / sma20, -0.03, 0.03) / 0.03 : 0;
+  const sentimentBias = clamp((sentimentScore - 50) / 50, -1, 1);
+  const trendBias = clamp(trend / 12, -1, 1);
+  const mentionBias = clamp((mentionVolume - 4) / 12, 0, 1);
 
-  // 4. Base expected move = ATR × sentiment × momentum × confidence
-  //    Confidence scales the size down when the model is uncertain.
-  const baseMoveRaw = atr * sentimentMultiplier * momentumBias * confidence;
+  const directionalScore = sentimentBias * 0.48 + trendBias * 0.27 + momentumBias * 0.17 + mentionBias * 0.08;
+  const modelDirection =
+    directionalScore >= 0.08 ? "UP" : directionalScore <= -0.08 ? "DOWN" : "NEUTRAL";
+  const direction = directionHint === "NEUTRAL" ? modelDirection : directionHint;
 
-  // 5. Cap the move at 5% of current price (prevents extreme outliers)
-  const maxMove = currentPrice * 0.05;
-  const baseMove = Math.min(baseMoveRaw, maxMove);
+  const directionalStrength = clamp(Math.abs(directionalScore), 0, 1);
+  const confidenceFactor = 0.6 + confidence * 0.65;
+  const signalFactor = 0.75 + directionalStrength * 0.9;
+  const volumeFactor = 0.9 + mentionBias * 0.3;
+  const heuristicMovePct = baseVolatilityPct * confidenceFactor * signalFactor * volumeFactor;
 
-  // 6. Apply direction sign
-  const sign = direction === "UP" ? 1 : direction === "DOWN" ? -1 : 0;
-  const priceChange = Number((sign * baseMove).toFixed(2));
+  const signedAiMovePct =
+    typeof aiMovePct === "number"
+      ? clamp(
+          directionHint === "DOWN"
+            ? -Math.abs(aiMovePct)
+            : directionHint === "UP"
+              ? Math.abs(aiMovePct)
+              : aiMovePct,
+          -0.08,
+          0.08,
+        )
+      : null;
+
+  const signedHeuristicMovePct =
+    direction === "UP" ? heuristicMovePct : direction === "DOWN" ? -heuristicMovePct : 0;
+
+  const blendedMovePct =
+    signedAiMovePct === null
+      ? signedHeuristicMovePct
+      : signedHeuristicMovePct * 0.7 + signedAiMovePct * 0.3;
+
+  const normalizedMovePct =
+    direction === "NEUTRAL"
+      ? clamp(blendedMovePct, -0.0025, 0.0025)
+      : direction === "UP"
+        ? Math.max(blendedMovePct, 0.0015)
+        : Math.min(blendedMovePct, -0.0015);
+
+  const cappedMovePct = clamp(normalizedMovePct, -0.07, 0.07);
+  const priceChange = Number((currentPrice * cappedMovePct).toFixed(2));
   const priceTarget = Number((currentPrice + priceChange).toFixed(2));
 
-  return { priceChange, priceTarget };
+  return {
+    direction: priceChange > 0 ? "UP" : priceChange < 0 ? "DOWN" : "NEUTRAL",
+    priceChange,
+    priceTarget,
+  };
 }
 
 function heuristics(item: RawSourceItem): ProcessedSignalItem {
@@ -164,58 +219,53 @@ Return strict JSON with keys: direction (UP|DOWN|NEUTRAL), confidence (0-1), exp
 
   const geminiText = await callGemini(prompt);
 
-  // ── Fallback: heuristic direction + quantitative price target ──────────────
   if (!geminiText) {
     const direction = context.score >= 62 ? "UP" : context.score <= 42 ? "DOWN" : "NEUTRAL";
     const confidence = Math.min(0.93, 0.45 + Math.abs(context.score - 50) / 100 + Math.min(context.mentionVolume, 12) / 100);
-    const { priceChange, priceTarget } = computePriceTarget(
-      context.currentPrice ?? 0,
-      context.history,
-      direction,
-      context.score,
+    const projection = computeTomorrowProjection({
+      currentPrice: context.currentPrice ?? 0,
+      history: context.history,
+      directionHint: direction,
+      sentimentScore: context.score,
+      trend: context.trend,
+      mentionVolume: context.mentionVolume,
       confidence,
-    );
+    });
+
     return {
       symbol: company.symbol,
-      direction,
+      direction: projection.direction,
       confidence,
-      priceChange,
-      priceTarget,
-      explanation: direction === "UP"
-        ? "Stock likely to rise due to positive sentiment, stronger impact events, and rising mention volume."
-        : direction === "DOWN"
-          ? "Stock likely to weaken due to negative sentiment pressure and adverse event flow."
-          : "Signals are mixed, so the stock outlook remains neutral for now.",
+      priceChange: projection.priceChange,
+      priceTarget: projection.priceTarget,
+      explanation: projection.direction === "UP"
+        ? `Positive sentiment, recent momentum, and catalyst volume suggest a move of about ${formatSignedRupees(projection.priceChange)} by tomorrow.`
+        : projection.direction === "DOWN"
+          ? `Negative sentiment pressure and recent trend weakness point to a move of about ${formatSignedRupees(projection.priceChange)} by tomorrow.`
+          : `Signals are mixed, so the model expects a mostly flat session tomorrow around ₹${projection.priceTarget.toFixed(2)}.`,
     };
   }
 
-  // ── Gemini path: parse direction + use our algorithm for price target ───────
   try {
     const parsed = PredictionSchema.parse(JSON.parse(geminiText));
-
-    // Gemini gives us a % estimate; we also run our own ATR model and blend them.
-    const geminiMovePct = parsed.priceChangePct / 100;
-    const geminiMoveAbs = context.currentPrice ? context.currentPrice * geminiMovePct : 0;
-
-    const { priceChange: atrMove, priceTarget: atrTarget } = computePriceTarget(
-      context.currentPrice ?? 0,
-      context.history,
-      parsed.direction,
-      context.score,
-      parsed.confidence,
-    );
-
-    // Blend: 60% ATR model + 40% Gemini estimate for a more robust signal
-    const blendedChange = Number((atrMove * 0.6 + geminiMoveAbs * 0.4).toFixed(2));
-    const blendedTarget = Number(((context.currentPrice ?? 0) + blendedChange).toFixed(2));
+    const projection = computeTomorrowProjection({
+      currentPrice: context.currentPrice ?? 0,
+      history: context.history,
+      directionHint: parsed.direction,
+      sentimentScore: context.score,
+      trend: context.trend,
+      mentionVolume: context.mentionVolume,
+      confidence: parsed.confidence,
+      aiMovePct: parsed.priceChangePct / 100,
+    });
 
     return {
       symbol: company.symbol,
-      direction: parsed.direction,
+      direction: projection.direction,
       confidence: parsed.confidence,
-      explanation: parsed.explanation,
-      priceChange: blendedChange,
-      priceTarget: blendedTarget,
+      explanation: `${parsed.explanation} Estimated move: ${formatSignedRupees(projection.priceChange)} to around ₹${projection.priceTarget.toFixed(2)} tomorrow.`,
+      priceChange: projection.priceChange,
+      priceTarget: projection.priceTarget,
     };
   } catch {
     return {
@@ -224,7 +274,7 @@ Return strict JSON with keys: direction (UP|DOWN|NEUTRAL), confidence (0-1), exp
       confidence: 0.5,
       priceChange: 0,
       priceTarget: context.currentPrice ?? 0,
-      explanation: "AI response could not be parsed cleanly, so the model returned a neutral fallback.",
+      explanation: `AI response could not be parsed cleanly, so the model returned a neutral fallback around ₹${(context.currentPrice ?? 0).toFixed(2)}.`,
     };
   }
 }

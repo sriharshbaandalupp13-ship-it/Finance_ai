@@ -23,6 +23,8 @@ function average(values: number[]): number | null {
 const INDIAN_BASE_PRICES: Record<string, number> = {
   "RELIANCE.BSE":   1330,
   "TCS.BSE":        3500,
+  "TATAMOTORS.BSE": 1020,
+  "TATASTEEL.BSE":  162,
   "HDFCBANK.BSE":   1760,
   "INFY.BSE":       1440,
   "ICICIBANK.BSE":  1320,

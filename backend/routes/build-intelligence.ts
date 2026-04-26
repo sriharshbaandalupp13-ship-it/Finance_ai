@@ -1,5 +1,14 @@
-import { WATCHLIST, RELATIONS } from "@/data/watchlist";
-import type { CompanyIntelligence, CompanyProfile, CompanyRelation, IntelligenceResponse, ProcessedSignalItem, TrendingCompany, SentimentLabel } from "@/data/contracts";
+import { WATCHLIST, RELATIONS, resolveCompanyQuery } from "@/data/watchlist";
+import type {
+  CompanyIntelligence,
+  CompanyProfile,
+  CompanyRelation,
+  CompanyRelationType,
+  IntelligenceResponse,
+  ProcessedSignalItem,
+  TrendingCompany,
+  SentimentLabel,
+} from "@/data/contracts";
 import { buildAlerts, buildSentimentSnapshot } from "@/backend/engines/sentiment-engine";
 import { buildPrediction } from "@/backend/engines/prediction-engine";
 import { persistSignalItems, persistSnapshot } from "@/backend/repositories/intelligence-repository";
@@ -9,24 +18,138 @@ import { fetchRssNews } from "@/services/news/rss-service";
 import { fetchRedditMentions } from "@/services/social/reddit-service";
 import { fetchStockSnapshot } from "@/services/stocks/market-service";
 
-function getCompany(symbol: string): CompanyProfile {
-  return WATCHLIST.find((company) => company.symbol === symbol.toUpperCase()) ?? {
-    symbol: symbol.toUpperCase(),
-    name: `${symbol.toUpperCase()} Company`,
-    exchange: "US",
-    sector: "Unknown",
+function normalizeToken(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+}
+
+function titleCase(value: string) {
+  return value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function inferSector(value: string) {
+  const normalized = normalizeToken(value);
+
+  if (/(BANK|FINANCE|INSURANCE)/.test(normalized)) return "Banking";
+  if (/(STEEL|METAL|MINING)/.test(normalized)) return "Metals";
+  if (/(MOTOR|AUTO|AUTOZONE|TYRE)/.test(normalized)) return "Automotive";
+  if (/(TECH|SOFT|INFO|CONSULT|DIGITAL|TCS|INFY|WIPRO)/.test(normalized)) return "IT Services";
+  if (/(TELECOM|AIRTEL|JIO|VODA)/.test(normalized)) return "Telecom";
+  if (/(OIL|GAS|POWER|ENERGY|PETRO)/.test(normalized)) return "Energy";
+  if (/(FMCG|CONSUMER|UNILEVER|FOOD|BEVERAGE)/.test(normalized)) return "FMCG";
+  if (/(PHARMA|BIO|HEALTH|HOSPITAL)/.test(normalized)) return "Pharma";
+  if (/(CEMENT|BUILD|INFRA|MATERIAL)/.test(normalized)) return "Materials";
+  return "Diversified";
+}
+
+function buildFallbackCompanyProfile(query: string): CompanyProfile {
+  const raw = query.trim();
+  const normalized = raw.toUpperCase();
+  const hasExchangeSuffix = /\.(BSE|NSE)$/.test(normalized);
+  const exchange = normalized.endsWith(".NSE") ? "NSE" : "BSE";
+  const baseName = raw.replace(/\.(BSE|NSE)$/i, "").trim();
+  const compactSymbol = baseName.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+  return {
+    symbol: hasExchangeSuffix ? normalized : `${compactSymbol || "UNKNOWN"}.${exchange}`,
+    name: titleCase(baseName || normalized),
+    exchange,
+    sector: inferSector(baseName || normalized),
   };
 }
 
-function getRelations(symbol: string): CompanyRelation[] {
-  return RELATIONS.filter((relation) => relation.sourceSymbol === symbol.toUpperCase() || relation.targetSymbol === symbol.toUpperCase());
+function getCompany(query: string): CompanyProfile {
+  return resolveCompanyQuery(query) ?? buildFallbackCompanyProfile(query);
 }
 
-function getRelatedCompanies(symbol: string): CompanyProfile[] {
+function getRelationPeerSymbol(symbol: string, relation: CompanyRelation) {
+  return relation.targetSymbol === symbol ? relation.sourceSymbol : relation.targetSymbol;
+}
+
+function tokensForCompany(company: CompanyProfile) {
+  return new Set(normalizeToken(`${company.name} ${company.symbol}`).split(" ").filter(Boolean));
+}
+
+function inferRelationType(company: CompanyProfile, peer: CompanyProfile): CompanyRelationType {
+  if (company.sector === peer.sector) return "competitor";
+  if (company.sector === "Metals" && peer.sector === "Automotive") return "supplier";
+  if (company.sector === "Automotive" && peer.sector === "Metals") return "manufacturer";
+  return "partner";
+}
+
+function buildRelationRationale(company: CompanyProfile, peer: CompanyProfile, relationType: CompanyRelationType) {
+  if (relationType === "competitor") {
+    return `${company.name} and ${peer.name} operate in the ${company.sector.toLowerCase()} space and may react to similar market catalysts.`;
+  }
+  if (relationType === "supplier") {
+    return `${company.name} is linked to ${peer.name} through materials and manufacturing demand.`;
+  }
+  if (relationType === "manufacturer") {
+    return `${company.name} depends on industrial inputs that can be influenced by ${peer.name}.`;
+  }
+  return `${company.name} and ${peer.name} share brand, sector, or market exposure that can create spillover moves.`;
+}
+
+function buildHeuristicRelations(company: CompanyProfile): CompanyRelation[] {
+  const companyTokens = tokensForCompany(company);
+  const primaryToken = normalizeToken(company.name).split(" ")[0] ?? "";
+
+  return WATCHLIST
+    .filter((candidate) => candidate.symbol !== company.symbol)
+    .map((candidate) => {
+      const candidateTokens = tokensForCompany(candidate);
+      const overlap = [...companyTokens].filter((token) => candidateTokens.has(token)).length;
+      const sameSector = company.sector === candidate.sector;
+      const sameBrandFamily = primaryToken && normalizeToken(candidate.name).startsWith(primaryToken);
+      const linkedSupplyChain =
+        (company.sector === "Metals" && candidate.sector === "Automotive") ||
+        (company.sector === "Automotive" && candidate.sector === "Metals");
+
+      let score = overlap * 2;
+      if (sameSector) score += 5;
+      if (sameBrandFamily) score += 4;
+      if (linkedSupplyChain) score += 3;
+
+      return { candidate, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 4)
+    .map(({ candidate, score }) => {
+      const relation = inferRelationType(company, candidate);
+      const strength = Math.min(0.92, Number((0.46 + score * 0.06).toFixed(2)));
+
+      return {
+        sourceSymbol: company.symbol,
+        targetSymbol: candidate.symbol,
+        relation,
+        rationale: buildRelationRationale(company, candidate, relation),
+        strength,
+      };
+    });
+}
+
+function getRelations(company: CompanyProfile): CompanyRelation[] {
+  const staticRelations = RELATIONS.filter(
+    (relation) => relation.sourceSymbol === company.symbol || relation.targetSymbol === company.symbol,
+  );
+
+  const staticPeers = new Set(staticRelations.map((relation) => getRelationPeerSymbol(company.symbol, relation)));
+  const heuristicRelations = buildHeuristicRelations(company).filter(
+    (relation) => !staticPeers.has(getRelationPeerSymbol(company.symbol, relation)),
+  );
+
+  return [...staticRelations, ...heuristicRelations].slice(0, 5);
+}
+
+function getRelatedCompanies(company: CompanyProfile, relations: CompanyRelation[]): CompanyProfile[] {
   const connected = new Set<string>();
-  for (const relation of getRelations(symbol)) {
-    if (relation.sourceSymbol !== symbol.toUpperCase()) connected.add(relation.sourceSymbol);
-    if (relation.targetSymbol !== symbol.toUpperCase()) connected.add(relation.targetSymbol);
+  for (const relation of relations) {
+    connected.add(getRelationPeerSymbol(company.symbol, relation));
   }
   return [...connected].map(getCompany);
 }
@@ -42,7 +165,10 @@ function dedupe(items: ProcessedSignalItem[]) {
 }
 
 function buildWhyMoving(symbol: string, items: ProcessedSignalItem[]) {
-  const drivers = items.slice(0, 3).map((item) => `${item.financialEvent} from ${item.source} (${item.sentiment}, ${item.impact} impact)`);
+  const drivers = items
+    .slice(0, 3)
+    .map((item) => `${item.financialEvent} from ${item.source} (${item.sentiment}, ${item.impact} impact)`);
+
   return drivers.length
     ? `${symbol} is moving because of ${drivers.join("; ")}.`
     : `${symbol} does not have enough recent catalysts yet, so the system is leaning on market structure and stock behavior.`;
@@ -50,6 +176,7 @@ function buildWhyMoving(symbol: string, items: ProcessedSignalItem[]) {
 
 function buildTrending(allSignals: ProcessedSignalItem[]): TrendingCompany[] {
   const bucket = new Map<string, { score: number; mentions: number; pos: number; neg: number }>();
+
   for (const item of allSignals) {
     for (const tag of item.companyTags) {
       const current = bucket.get(tag) ?? { score: 0, mentions: 0, pos: 0, neg: 0 };
@@ -89,12 +216,9 @@ async function fetchSignalsForCompany(company: CompanyProfile): Promise<Processe
 
 export async function buildCompanyIntelligence(symbol: string): Promise<IntelligenceResponse> {
   const company = getCompany(symbol);
-  const relations = getRelations(company.symbol);
-  const relatedCompanies = getRelatedCompanies(company.symbol);
+  const relations = getRelations(company);
+  const relatedCompanies = getRelatedCompanies(company, relations);
 
-  // Fetch primary signals, related signals, and stock data all in parallel.
-  // Related signals are needed for buildTrending() and were previously fetched
-  // sequentially after persistence — moving them here cuts one full round-trip.
   const [processedItems, stock, relatedStocks, relatedSignals] = await Promise.all([
     fetchSignalsForCompany(company),
     fetchStockSnapshot(company.symbol, company.name),
@@ -141,7 +265,7 @@ export async function buildCompanyIntelligence(symbol: string): Promise<Intellig
     workflow: [
       { id: "news", label: "News", value: `${processedItems.length} items` },
       { id: "sentiment", label: "Sentiment", value: `${sentiment.score}/100` },
-      { id: "prediction", label: "Prediction", value: `${prediction.direction} | ${Math.round(prediction.confidence * 100)}%` },
+      { id: "prediction", label: "Prediction", value: `${prediction.direction} | ${prediction.priceChange >= 0 ? "+" : "-"}INR ${Math.abs(prediction.priceChange).toFixed(2)}` },
       { id: "relations", label: "Related Companies", value: `${relatedCompanies.length} links` },
     ],
   };
@@ -152,4 +276,3 @@ export async function buildTrendingSnapshot() {
   const signals = (await Promise.all(companies.map(fetchSignalsForCompany))).flat();
   return buildTrending(signals);
 }
-
