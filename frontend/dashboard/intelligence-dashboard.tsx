@@ -60,9 +60,9 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
       setError(null);
       try {
         const response = await fetch(`/api/intelligence/${encodeURIComponent(symbol)}`, { signal: controller.signal });
-        if (!response.ok) throw new Error("Unable to load intelligence feed.");
-        const payload = (await response.json()) as IntelligenceResponse;
-        setData(payload);
+        const payload = (await response.json()) as IntelligenceResponse | { message?: string };
+        if (!response.ok) throw new Error("message" in payload && payload.message ? payload.message : "Unable to load intelligence feed.");
+        setData(payload as IntelligenceResponse);
       } catch (loadError) {
         if (controller.signal.aborted) return;
         setError(loadError instanceof Error ? loadError.message : "Unexpected error");
@@ -100,6 +100,16 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
     setQuery(nextName.toUpperCase());
     setSymbol(nextSymbol);
     setIsSuggestionOpen(false);
+  }
+
+  function submitLookup() {
+    setIsSuggestionOpen(false);
+    if (!resolvedSelection) {
+      setError("No matching company found. Please choose one of the companies shown in the search results.");
+      return;
+    }
+    setError(null);
+    setSymbol(resolvedSelection.symbol);
   }
 
   return (
@@ -158,8 +168,7 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                 className="space-y-4"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  setIsSuggestionOpen(false);
-                  setSymbol(resolvedSelection?.symbol ?? (query.trim().toUpperCase() || "RELIANCE.BSE"));
+                  submitLookup();
                 }}
               >
                 <div>

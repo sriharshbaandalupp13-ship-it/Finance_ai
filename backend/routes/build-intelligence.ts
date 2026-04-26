@@ -18,52 +18,25 @@ import { fetchRssNews } from "@/services/news/rss-service";
 import { fetchRedditMentions } from "@/services/social/reddit-service";
 import { fetchStockSnapshot } from "@/services/stocks/market-service";
 
+export class UnknownCompanyError extends Error {
+  constructor(query: string) {
+    super(`No matching company found for "${query}". Please select a company from the search results.`);
+    this.name = "UnknownCompanyError";
+  }
+}
+
 function normalizeToken(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
 }
 
-function titleCase(value: string) {
-  return value
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function inferSector(value: string) {
-  const normalized = normalizeToken(value);
-
-  if (/(BANK|FINANCE|INSURANCE)/.test(normalized)) return "Banking";
-  if (/(STEEL|METAL|MINING)/.test(normalized)) return "Metals";
-  if (/(MOTOR|AUTO|AUTOZONE|TYRE)/.test(normalized)) return "Automotive";
-  if (/(TECH|SOFT|INFO|CONSULT|DIGITAL|TCS|INFY|WIPRO)/.test(normalized)) return "IT Services";
-  if (/(TELECOM|AIRTEL|JIO|VODA)/.test(normalized)) return "Telecom";
-  if (/(OIL|GAS|POWER|ENERGY|PETRO)/.test(normalized)) return "Energy";
-  if (/(FMCG|CONSUMER|UNILEVER|FOOD|BEVERAGE)/.test(normalized)) return "FMCG";
-  if (/(PHARMA|BIO|HEALTH|HOSPITAL)/.test(normalized)) return "Pharma";
-  if (/(CEMENT|BUILD|INFRA|MATERIAL)/.test(normalized)) return "Materials";
-  return "Diversified";
-}
-
-function buildFallbackCompanyProfile(query: string): CompanyProfile {
-  const raw = query.trim();
-  const normalized = raw.toUpperCase();
-  const hasExchangeSuffix = /\.(BSE|NSE)$/.test(normalized);
-  const exchange = normalized.endsWith(".NSE") ? "NSE" : "BSE";
-  const baseName = raw.replace(/\.(BSE|NSE)$/i, "").trim();
-  const compactSymbol = baseName.toUpperCase().replace(/[^A-Z0-9]/g, "");
-
-  return {
-    symbol: hasExchangeSuffix ? normalized : `${compactSymbol || "UNKNOWN"}.${exchange}`,
-    name: titleCase(baseName || normalized),
-    exchange,
-    sector: inferSector(baseName || normalized),
-  };
+function findCompany(query: string): CompanyProfile | null {
+  return resolveCompanyQuery(query);
 }
 
 function getCompany(query: string): CompanyProfile {
-  return resolveCompanyQuery(query) ?? buildFallbackCompanyProfile(query);
+  const company = findCompany(query);
+  if (!company) throw new UnknownCompanyError(query);
+  return company;
 }
 
 function getRelationPeerSymbol(symbol: string, relation: CompanyRelation) {
@@ -138,7 +111,8 @@ function buildGeminiRelations(company: CompanyProfile, suggestions: RelationSugg
 
   return suggestions
     .map((suggestion) => {
-      const peer = getCompany(suggestion.target);
+      const peer = findCompany(suggestion.target);
+      if (!peer) return null;
       if (peer.symbol === company.symbol) return null;
       if (seenPeers.has(peer.symbol)) return null;
       seenPeers.add(peer.symbol);
@@ -176,7 +150,7 @@ function getRelatedCompanies(company: CompanyProfile, relations: CompanyRelation
   for (const relation of relations) {
     connected.add(getRelationPeerSymbol(company.symbol, relation));
   }
-  return [...connected].map(getCompany);
+  return [...connected].map(findCompany).filter((item): item is CompanyProfile => item !== null);
 }
 
 function dedupe(items: ProcessedSignalItem[]) {
@@ -215,15 +189,18 @@ function buildTrending(allSignals: ProcessedSignalItem[]): TrendingCompany[] {
 
   return [...bucket.entries()]
     .map(([symbol, value]) => {
+      const company = findCompany(symbol);
+      if (!company) return null;
       const sentiment: SentimentLabel = value.pos > value.neg ? "positive" : value.neg > value.pos ? "negative" : "neutral";
       return {
         symbol,
-        name: getCompany(symbol).name,
+        name: company.name,
         buzzScore: value.score + value.mentions * 2,
         mentionVolume: value.mentions,
         sentiment,
       };
     })
+    .filter((company): company is TrendingCompany => company !== null)
     .sort((left, right) => right.buzzScore - left.buzzScore)
     .slice(0, 6);
 }

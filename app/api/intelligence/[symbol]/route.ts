@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildCompanyIntelligence } from "@/backend/routes/build-intelligence";
+import { buildCompanyIntelligence, UnknownCompanyError } from "@/backend/routes/build-intelligence";
 
 export async function GET(_request: Request, context: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await context.params;
@@ -9,6 +9,6 @@ export async function GET(_request: Request, context: { params: Promise<{ symbol
     return NextResponse.json(payload);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected server error";
-    return NextResponse.json({ message }, { status: 500 });
+    return NextResponse.json({ message }, { status: error instanceof UnknownCompanyError ? 404 : 500 });
   }
 }
