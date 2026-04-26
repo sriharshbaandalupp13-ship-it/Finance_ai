@@ -180,6 +180,7 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [activeCraftTier, setActiveCraftTier] = useState<CraftTierId>("tier2");
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
+  const [isLiveSearching, setIsLiveSearching] = useState(false);
   const [data, setData] = useState<IntelligenceResponse | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -283,6 +284,29 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
       ? `${displayPrimary.company.name} is ${getPredictionLabel(displayPrimary.prediction.direction, displayPrimary.prediction.confidence, displayPrimary.prediction.priceChange).toLowerCase()}`
       : "Loading market intelligence";
   const activeTier = WEBSITE_TIERS.find((tier) => tier.id === activeCraftTier) ?? WEBSITE_TIERS[1];
+
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length < 3 || !resolvedSelection) {
+      setIsLiveSearching(false);
+      return;
+    }
+
+    if (symbol === resolvedSelection.symbol && !error) {
+      setIsLiveSearching(false);
+      return;
+    }
+
+    setIsLiveSearching(true);
+    const timeout = window.setTimeout(() => {
+      setSelectedSignalId(null);
+      setError(null);
+      setSymbol((currentSymbol) => (currentSymbol === resolvedSelection.symbol ? currentSymbol : resolvedSelection.symbol));
+      setIsLiveSearching(false);
+    }, 320);
+
+    return () => window.clearTimeout(timeout);
+  }, [error, query, resolvedSelection, symbol]);
 
   function selectCompany(nextSymbol: string, nextName: string) {
     setQuery(nextName);
@@ -453,9 +477,11 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <label htmlFor="symbol" className="text-[10px] uppercase tracking-[0.28em] text-cyan-100">
-                    Lookup
+                    Live lookup
                   </label>
-                  <span className="text-xs text-slate-500">Updated {formatTime(lastUpdated?.toISOString())}</span>
+                  <span className="text-xs text-slate-500">
+                    {isLiveSearching ? "Loading match..." : `Updated ${formatTime(lastUpdated?.toISOString())}`}
+                  </span>
                 </div>
                 <div className="relative mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_46px]">
                   <div className="relative">
@@ -510,6 +536,9 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
                   </button>
                 </div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Type at least 3 characters and the best supported match will load automatically.
+                </p>
                 {invalidDraft ? (
                   <p className="mt-2 rounded-lg border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
                     No supported company matches this text. Pick a result or try a listed symbol.
