@@ -6,7 +6,7 @@ import type { RawSourceItem } from "@/data/contracts";
  */
 function stableId(articleUrl: string | undefined, publishedAt: string | undefined, symbol: string, fallbackIndex: number): string {
   const base = articleUrl && articleUrl !== "#" ? articleUrl : `${symbol}-${publishedAt ?? ""}-${fallbackIndex}`;
-  // Simple djb2-style hash — consistent across runs for the same input
+  // Simple djb2-style hash, consistent across runs for the same input.
   let hash = 5381;
   for (let i = 0; i < base.length; i++) {
     hash = ((hash << 5) + hash) ^ base.charCodeAt(i);

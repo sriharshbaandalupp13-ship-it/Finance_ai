@@ -29,10 +29,10 @@ type RelationNodeData = {
 
 function PipelineNode({ data }: NodeProps<Node<PipelineNodeData>>) {
   return (
-    <div className="min-w-[190px] rounded-2xl border border-sky-200 bg-white/95 p-4 shadow-[0_18px_40px_rgba(56,189,248,0.18)] backdrop-blur">
-      <p className="text-[10px] uppercase tracking-[0.35em] text-sky-600">Workflow</p>
-      <h4 className="mt-2 text-sm font-semibold text-slate-900">{data.label}</h4>
-      <p className="mt-2 text-xs leading-5 text-slate-600">{data.value}</p>
+    <div className="min-w-[190px] rounded-xl border border-cyan-300/20 bg-[#0b1220]/95 p-4 shadow-[0_18px_44px_rgba(0,0,0,0.32)] backdrop-blur">
+      <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-200">Workflow</p>
+      <h4 className="mt-2 text-sm font-semibold text-white">{data.label}</h4>
+      <p className="mt-2 text-xs leading-5 text-slate-400">{data.value}</p>
     </div>
   );
 }
@@ -44,15 +44,15 @@ function RelationNode({ data, selected }: NodeProps<Node<RelationNodeData>>) {
     <div
       className={`min-w-[190px] rounded-3xl border px-5 py-4 shadow-[0_20px_45px_rgba(15,23,42,0.12)] transition ${
         isCenter
-          ? "border-emerald-300 bg-emerald-50/95 text-emerald-950"
+          ? "border-emerald-300/35 bg-emerald-300/14 text-emerald-50"
           : selected
-            ? "border-sky-400 bg-sky-50/95 text-slate-950"
-            : "border-slate-200 bg-white/95 text-slate-900"
+            ? "border-cyan-300/45 bg-cyan-300/14 text-white"
+            : "border-white/10 bg-[#0b1220]/95 text-slate-100"
       }`}
     >
       <div className="text-sm font-semibold">{data.label}</div>
-      <div className={`mt-1 text-xs ${isCenter ? "text-emerald-700" : "text-slate-500"}`}>{data.subtitle}</div>
-      <div className={`mt-3 text-[11px] uppercase tracking-[0.25em] ${isCenter ? "text-emerald-700" : "text-sky-600"}`}>
+      <div className={`mt-1 text-xs ${isCenter ? "text-emerald-100" : "text-slate-400"}`}>{data.subtitle}</div>
+      <div className={`mt-3 text-[11px] uppercase tracking-[0.22em] ${isCenter ? "text-emerald-200" : "text-cyan-200"}`}>
         {data.meta}
       </div>
     </div>
@@ -84,7 +84,7 @@ function buildWorkflowEdges(items: WorkflowItem[]): Edge[] {
     source: item.id,
     target: items[index + 1].id,
     animated: true,
-    style: { stroke: "#0ea5e9", strokeWidth: 2 },
+    style: { stroke: "#22d3ee", strokeWidth: 2 },
   }));
 }
 
@@ -109,7 +109,7 @@ function buildRelationNodes(
     data: {
       label: symbol,
       subtitle: companyName,
-      meta: `Tomorrow target INR ${priceTarget.toFixed(2)}`,
+      meta: `Target INR ${priceTarget.toFixed(2)}`,
       tone: "center",
     },
     draggable: false,
@@ -151,10 +151,10 @@ function buildRelationEdges(symbol: string, relations: CompanyRelation[]): Edge[
     label: relation.relation,
     animated: relation.strength > 0.75,
     style: {
-      stroke: relation.strength > 0.75 ? "#10b981" : "#38bdf8",
+      stroke: relation.strength > 0.75 ? "#34d399" : "#22d3ee",
       strokeWidth: relation.strength > 0.75 ? 2.5 : 2,
     },
-    labelStyle: { fill: "#334155", fontSize: 11, fontWeight: 600 },
+    labelStyle: { fill: "#cbd5e1", fontSize: 11, fontWeight: 700 },
   }));
 }
 
@@ -189,15 +189,15 @@ export function WorkflowCanvas({
 
   return (
     <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-      <section className="rounded-[28px] border border-sky-100 bg-white/88 p-5 shadow-[0_24px_60px_rgba(148,163,184,0.16)] backdrop-blur">
+      <section className="rounded-2xl border border-white/10 bg-[#0d141f]/90 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur">
         <div className="mb-4">
-          <p className="text-[11px] uppercase tracking-[0.35em] text-sky-600">Interactive workflow</p>
-          <h3 className="mt-2 text-xl font-semibold text-slate-900">News to prediction pipeline</h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+          <p className="text-[11px] uppercase tracking-[0.3em] text-cyan-200">Interactive workflow</p>
+          <h3 className="mt-2 text-xl font-semibold text-white">News to prediction pipeline</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
             Follow how signals turn into a next-day call, from news volume through sentiment and final price direction.
           </p>
         </div>
-        <div className="h-[360px] overflow-hidden rounded-3xl border border-sky-100 bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(240,249,255,0.95))]">
+        <div className="h-[360px] overflow-hidden rounded-xl border border-cyan-300/14 bg-[linear-gradient(180deg,rgba(2,6,23,0.74),rgba(15,23,42,0.88))]">
           <ReactFlow
             nodes={workflowNodes}
             edges={workflowEdges}
@@ -210,29 +210,29 @@ export function WorkflowCanvas({
             nodeTypes={nodeTypes}
             proOptions={{ hideAttribution: true }}
           >
-            <Background color="#cbd5e1" gap={18} />
+            <Background color="rgba(148,163,184,0.22)" gap={18} />
             <Controls showInteractive={false} />
           </ReactFlow>
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-emerald-100 bg-white/88 p-5 shadow-[0_24px_60px_rgba(148,163,184,0.16)] backdrop-blur">
+      <section className="rounded-2xl border border-white/10 bg-[#0d141f]/90 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.35em] text-emerald-600">Company relationship graph</p>
-            <h3 className="mt-2 text-xl font-semibold text-slate-900">Chain-reaction explorer</h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-emerald-200">Company relationship graph</p>
+            <h3 className="mt-2 text-xl font-semibold text-white">Chain-reaction explorer</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               Click a related company to inspect how catalysts could ripple through suppliers, competitors, and partners.
             </p>
           </div>
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-right">
-            <div className="text-[10px] uppercase tracking-[0.28em] text-emerald-700">Tomorrow target</div>
-            <div className="mt-1 text-lg font-bold text-emerald-950">INR {priceTarget.toFixed(2)}</div>
+          <div className="rounded-xl border border-emerald-300/18 bg-emerald-300/[0.06] px-4 py-3 text-right">
+            <div className="text-[10px] uppercase tracking-[0.24em] text-emerald-200">Tomorrow target</div>
+            <div className="mt-1 text-lg font-bold text-white">INR {priceTarget.toFixed(2)}</div>
           </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1fr_250px]">
-          <div className="h-[380px] overflow-hidden rounded-3xl border border-emerald-100 bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(236,253,245,0.95))]">
+          <div className="h-[380px] overflow-hidden rounded-xl border border-emerald-300/14 bg-[linear-gradient(180deg,rgba(2,6,23,0.74),rgba(15,23,42,0.88))]">
             <ReactFlow
               nodes={relationNodes}
               edges={relationEdges}
@@ -243,34 +243,34 @@ export function WorkflowCanvas({
               onNodeClick={(_, node) => setSelectedRelationId(node.id)}
               proOptions={{ hideAttribution: true }}
             >
-              <MiniMap pannable zoomable nodeColor="#10b981" maskColor="rgba(226,232,240,0.65)" />
-              <Background color="#cbd5e1" gap={20} />
+              <MiniMap pannable zoomable nodeColor="#34d399" maskColor="rgba(2,6,23,0.65)" />
+              <Background color="rgba(148,163,184,0.22)" gap={20} />
               <Controls showInteractive={false} />
             </ReactFlow>
           </div>
 
-          <aside className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Selected link</div>
+          <aside className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Selected link</div>
             {selectedRelation ? (
               <>
-                <h4 className="mt-3 text-lg font-semibold text-slate-900">
+                <h4 className="mt-3 text-lg font-semibold text-white">
                   {getRelationPeerSymbol(symbol, selectedRelation)}
                 </h4>
-                <p className="mt-1 text-sm font-medium text-emerald-700">
+                <p className="mt-1 text-sm font-medium text-emerald-200">
                   {selectedRelation.relation}
                 </p>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
+                <p className="mt-3 text-sm leading-6 text-slate-400">
                   {selectedRelation.rationale}
                 </p>
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
-                  <div className="text-[10px] uppercase tracking-[0.28em] text-slate-500">Connection strength</div>
-                  <div className="mt-2 text-xl font-bold text-slate-900">
+                <div className="mt-4 rounded-xl border border-white/10 bg-black/18 p-3">
+                  <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Connection strength</div>
+                  <div className="mt-2 text-xl font-bold text-white">
                     {Math.round(selectedRelation.strength * 100)}%
                   </div>
                 </div>
               </>
             ) : (
-              <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white/80 p-4 text-sm leading-6 text-slate-500">
+              <div className="mt-4 rounded-xl border border-dashed border-white/15 bg-black/18 p-4 text-sm leading-6 text-slate-400">
                 No related companies were found for this symbol yet. Try another company or expand the watchlist mappings.
               </div>
             )}

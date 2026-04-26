@@ -13,6 +13,12 @@ export const WATCHLIST: CompanyProfile[] = [
   { symbol: "BHARTIARTL.BSE", name: "Bharti Airtel", exchange: "BSE", sector: "Telecom" },
   { symbol: "WIPRO.BSE", name: "Wipro", exchange: "BSE", sector: "IT Services" },
   { symbol: "ADANIENT.BSE", name: "Adani Enterprises", exchange: "BSE", sector: "Conglomerate" },
+  { symbol: "ADANIPORTS.BSE", name: "Adani Ports and Special Economic Zone", exchange: "BSE", sector: "Infrastructure" },
+  { symbol: "ADANIGREEN.BSE", name: "Adani Green Energy", exchange: "BSE", sector: "Power" },
+  { symbol: "ADANIPOWER.BSE", name: "Adani Power", exchange: "BSE", sector: "Power" },
+  { symbol: "ADANIENSOL.BSE", name: "Adani Energy Solutions", exchange: "BSE", sector: "Power" },
+  { symbol: "ATGL.BSE", name: "Adani Total Gas", exchange: "BSE", sector: "Oil, Gas & Consumable Fuels" },
+  { symbol: "AWL.BSE", name: "Adani Wilmar", exchange: "BSE", sector: "FMCG" },
 ];
 
 export const RELATIONS: CompanyRelation[] = [
@@ -25,6 +31,16 @@ export const RELATIONS: CompanyRelation[] = [
   { sourceSymbol: "HDFCBANK.BSE", targetSymbol: "SBIN.BSE", relation: "competitor", rationale: "Private vs public sector banking competition.", strength: 0.78 },
   { sourceSymbol: "INFY.BSE", targetSymbol: "WIPRO.BSE", relation: "competitor", rationale: "Both compete in IT services and digital transformation.", strength: 0.80 },
   { sourceSymbol: "ADANIENT.BSE", targetSymbol: "RELIANCE.BSE", relation: "competitor", rationale: "Compete in energy, infrastructure and retail sectors.", strength: 0.72 },
+  { sourceSymbol: "ADANIENT.BSE", targetSymbol: "ADANIPORTS.BSE", relation: "partner", rationale: "Adani Enterprises and Adani Ports share group-level infrastructure and logistics exposure.", strength: 0.82 },
+  { sourceSymbol: "ADANIENT.BSE", targetSymbol: "ADANIGREEN.BSE", relation: "partner", rationale: "Adani Enterprises has group exposure to renewable energy development through Adani Green.", strength: 0.76 },
+  { sourceSymbol: "ADANIENT.BSE", targetSymbol: "ADANIPOWER.BSE", relation: "partner", rationale: "Adani Enterprises and Adani Power are linked through energy, coal, and infrastructure cycles.", strength: 0.77 },
+  { sourceSymbol: "ADANIENT.BSE", targetSymbol: "ADANIENSOL.BSE", relation: "partner", rationale: "Adani Energy Solutions connects the group through transmission, distribution, and power infrastructure.", strength: 0.74 },
+  { sourceSymbol: "ADANIGREEN.BSE", targetSymbol: "ADANIENSOL.BSE", relation: "partner", rationale: "Renewable generation and transmission assets can react to similar power-sector catalysts.", strength: 0.79 },
+  { sourceSymbol: "ADANIPOWER.BSE", targetSymbol: "ADANIENSOL.BSE", relation: "partner", rationale: "Power generation and transmission businesses are exposed to related electricity demand and policy changes.", strength: 0.78 },
+  { sourceSymbol: "ADANIPOWER.BSE", targetSymbol: "ADANIGREEN.BSE", relation: "competitor", rationale: "Both operate in power generation, with different thermal and renewable mixes.", strength: 0.66 },
+  { sourceSymbol: "ADANIPORTS.BSE", targetSymbol: "RELIANCE.BSE", relation: "partner", rationale: "Large-scale energy and retail supply chains can depend on port and logistics capacity.", strength: 0.58 },
+  { sourceSymbol: "ATGL.BSE", targetSymbol: "ADANIENSOL.BSE", relation: "partner", rationale: "Gas distribution and energy infrastructure share regulatory and urban utility exposure.", strength: 0.62 },
+  { sourceSymbol: "AWL.BSE", targetSymbol: "HINDUNILVR.BSE", relation: "competitor", rationale: "Both have consumer staples and packaged-food exposure.", strength: 0.64 },
   { sourceSymbol: "BHARTIARTL.BSE", targetSymbol: "SBIN.BSE", relation: "partner", rationale: "SBI provides major financing for Airtel expansion.", strength: 0.60 },
   { sourceSymbol: "ICICIBANK.BSE", targetSymbol: "SBIN.BSE", relation: "competitor", rationale: "Compete across retail banking, loans and deposits.", strength: 0.83 },
 ];
@@ -34,6 +50,20 @@ function normalizeLookupValue(value: string) {
 }
 
 const COMPANY_ALIASES: Record<string, string> = {
+  ADANI: "ADANIENT.BSE",
+  ADANIENT: "ADANIENT.BSE",
+  ADANIENTERPRISES: "ADANIENT.BSE",
+  ADANIPORT: "ADANIPORTS.BSE",
+  ADANIPORTS: "ADANIPORTS.BSE",
+  APSEZ: "ADANIPORTS.BSE",
+  ADANIGREEN: "ADANIGREEN.BSE",
+  ADANIPOWER: "ADANIPOWER.BSE",
+  ADANIENERGY: "ADANIENSOL.BSE",
+  ADANIENERGYSOLUTIONS: "ADANIENSOL.BSE",
+  ADANITRANSMISSION: "ADANIENSOL.BSE",
+  ADANITOTAL: "ATGL.BSE",
+  ADANITOTALGAS: "ATGL.BSE",
+  ADANIWILMAR: "AWL.BSE",
   TATAMOTORS: "TATAMOTORS.BSE",
   TATAMOTOR: "TATAMOTORS.BSE",
   TATASTEEL: "TATASTEEL.BSE",

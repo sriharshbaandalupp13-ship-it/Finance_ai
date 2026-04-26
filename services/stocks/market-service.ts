@@ -33,6 +33,12 @@ const INDIAN_BASE_PRICES: Record<string, number> = {
   "BHARTIARTL.BSE": 1740,
   "WIPRO.BSE":       480,
   "ADANIENT.BSE":   2550,
+  "ADANIPORTS.BSE": 1490,
+  "ADANIGREEN.BSE": 1085,
+  "ADANIPOWER.BSE":  152,
+  "ADANIENSOL.BSE": 1025,
+  "ATGL.BSE":        625,
+  "AWL.BSE":         270,
 };
 
 function buildFallbackHistory(symbol: string): StockPoint[] {

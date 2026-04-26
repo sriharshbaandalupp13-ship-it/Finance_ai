@@ -52,7 +52,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function formatSignedRupees(value: number) {
-  return `${value >= 0 ? "+" : "-"}₹${Math.abs(value).toFixed(2)}`;
+  return `${value >= 0 ? "+" : "-"}INR ${Math.abs(value).toFixed(2)}`;
 }
 
 function computeTomorrowProjection(input: {
@@ -318,7 +318,7 @@ Return strict JSON with keys: direction (UP|DOWN|NEUTRAL), confidence (0-1), exp
         ? `Positive sentiment, recent momentum, and catalyst volume suggest a move of about ${formatSignedRupees(projection.priceChange)} by tomorrow.`
         : projection.direction === "DOWN"
           ? `Negative sentiment pressure and recent trend weakness point to a move of about ${formatSignedRupees(projection.priceChange)} by tomorrow.`
-          : `Signals are mixed, so the model expects a mostly flat session tomorrow around ₹${projection.priceTarget.toFixed(2)}.`,
+          : `Signals are mixed, so the model expects a mostly flat session tomorrow around INR ${projection.priceTarget.toFixed(2)}.`,
     };
   }
 
@@ -339,7 +339,7 @@ Return strict JSON with keys: direction (UP|DOWN|NEUTRAL), confidence (0-1), exp
       symbol: company.symbol,
       direction: projection.direction,
       confidence: parsed.confidence,
-      explanation: `${parsed.explanation} Estimated move: ${formatSignedRupees(projection.priceChange)} to around ₹${projection.priceTarget.toFixed(2)} tomorrow.`,
+      explanation: `${parsed.explanation} Estimated move: ${formatSignedRupees(projection.priceChange)} to around INR ${projection.priceTarget.toFixed(2)} tomorrow.`,
       priceChange: projection.priceChange,
       priceTarget: projection.priceTarget,
     };
@@ -350,7 +350,7 @@ Return strict JSON with keys: direction (UP|DOWN|NEUTRAL), confidence (0-1), exp
       confidence: 0.5,
       priceChange: 0,
       priceTarget: context.currentPrice ?? 0,
-      explanation: `AI response could not be parsed cleanly, so the model returned a neutral fallback around ₹${(context.currentPrice ?? 0).toFixed(2)}.`,
+      explanation: `AI response could not be parsed cleanly, so the model returned a neutral fallback around INR ${(context.currentPrice ?? 0).toFixed(2)}.`,
     };
   }
 }
