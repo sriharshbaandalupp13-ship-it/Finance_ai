@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
@@ -15,12 +16,15 @@ import {
   Layers3,
   LineChart,
   Loader2,
+  MousePointer2,
   Network,
   Radar,
   RefreshCw,
   Search,
   SlidersHorizontal,
   Sparkles,
+  Type,
+  Volume2,
   type LucideIcon,
 } from "lucide-react";
 import type { IntelligenceResponse, ProcessedSignalItem, StockSnapshot } from "@/data/contracts";
@@ -30,6 +34,8 @@ import { StockChartCard } from "@/components/stock-chart-card";
 import { WorkflowCanvas } from "@/frontend/workflow/workflow-canvas";
 import { cn } from "@/utils/cn";
 import { formatCompactNumber, formatPercent, formatSignedRupees } from "@/utils/format";
+import studioHero from "@/Main Logo.jpg";
+import studioMark from "@/LOGO.jpg";
 
 const PRESETS = ["RELIANCE.BSE", "TCS.BSE", "TATAMOTORS.BSE", "TATASTEEL.BSE", "HDFCBANK.BSE", "ADANIENT.BSE"];
 const REFRESH_INTERVAL_MS = 45_000;
@@ -48,6 +54,7 @@ type SignalFilter = "all" | "positive" | "neutral" | "negative" | "high";
 type SignalSort = "latest" | "confidence" | "impact";
 type DirectionTone = "emerald" | "rose" | "amber";
 type MetricTone = DirectionTone | "cyan" | "slate";
+type CraftTierId = "tier1" | "tier2" | "tier3";
 
 const IMPACT_WEIGHT: Record<ProcessedSignalItem["impact"], number> = {
   high: 3,
@@ -60,6 +67,52 @@ const LENSES: Array<{ id: DashboardLens; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "Overview", icon: Gauge },
   { id: "signals", label: "Signals", icon: Radar },
   { id: "network", label: "Network", icon: Network },
+];
+
+const WEBSITE_TIERS: Array<{
+  id: CraftTierId;
+  eyebrow: string;
+  title: string;
+  summary: string;
+  principle: string;
+  features: string[];
+  payoff: string;
+  icon: LucideIcon;
+  tone: MetricTone;
+}> = [
+  {
+    id: "tier1",
+    eyebrow: "Tier 1",
+    title: "Table stakes",
+    summary: "Fast load times, mobile responsiveness, clean grid, readable typography.",
+    principle: "These are expected. Missing them breaks trust before the design gets a chance to speak.",
+    features: ["Responsive layout", "Readable hierarchy", "Tight spacing rhythm", "Fast first impression"],
+    payoff: "Disqualifiers removed so the product feels credible immediately.",
+    icon: Gauge,
+    tone: "slate",
+  },
+  {
+    id: "tier2",
+    eyebrow: "Tier 2",
+    title: "Differentiation",
+    summary: "Scroll-led motion, micro-interactions, stronger type, and more authored visual identity.",
+    principle: "This is where a good product starts feeling intentional rather than assembled.",
+    features: ["Purposeful motion", "Interaction feedback", "Custom visual accents", "Sharper storytelling"],
+    payoff: "Users feel momentum and polish while moving through the page.",
+    icon: Type,
+    tone: "cyan",
+  },
+  {
+    id: "tier3",
+    eyebrow: "Tier 3",
+    title: "Memorable",
+    summary: "Contextual interactivity, custom cursor behavior, cinematic transitions, and layout tension.",
+    principle: "Memorable work uses restraint: fewer effects, but each one changes how the site feels.",
+    features: ["Cursor aura", "Immersive transitions", "Broken-grid composition", "Adaptive focus states"],
+    payoff: "The interface becomes a brand experience, not just a dashboard.",
+    icon: MousePointer2,
+    tone: "amber",
+  },
 ];
 
 function getPredictionLabel(direction: string, confidence: number, priceChange: number) {
@@ -125,6 +178,8 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
   const [minConfidence, setMinConfidence] = useState(35);
   const [compactMode, setCompactMode] = useState(false);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
+  const [activeCraftTier, setActiveCraftTier] = useState<CraftTierId>("tier2");
+  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [data, setData] = useState<IntelligenceResponse | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,6 +216,15 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
     const interval = window.setInterval(() => setRefreshTick((tick) => tick + 1), REFRESH_INTERVAL_MS);
     return () => window.clearInterval(interval);
   }, [autoRefresh]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: MouseEvent) => {
+      setCursorPosition({ x: event.clientX, y: event.clientY });
+    };
+
+    window.addEventListener("mousemove", handlePointerMove, { passive: true });
+    return () => window.removeEventListener("mousemove", handlePointerMove);
+  }, []);
 
   const resolvedSelection = useMemo(() => resolveCompanyQuery(query), [query]);
   const suggestions = useMemo(() => searchCompanies(query, 8), [query]);
@@ -218,6 +282,7 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
     : displayPrimary
       ? `${displayPrimary.company.name} is ${getPredictionLabel(displayPrimary.prediction.direction, displayPrimary.prediction.confidence, displayPrimary.prediction.priceChange).toLowerCase()}`
       : "Loading market intelligence";
+  const activeTier = WEBSITE_TIERS.find((tier) => tier.id === activeCraftTier) ?? WEBSITE_TIERS[1];
 
   function selectCompany(nextSymbol: string, nextName: string) {
     setQuery(nextName);
@@ -241,17 +306,25 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
   }
 
   return (
-    <main className="min-h-screen text-slate-100">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-3 py-4 sm:px-5 lg:px-7">
+    <main className="relative min-h-screen overflow-hidden text-slate-100">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed left-0 top-0 z-0 hidden h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl transition-transform duration-300 md:block"
+        style={{ transform: `translate(${cursorPosition.x - 112}px, ${cursorPosition.y - 112}px)` }}
+      />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[380px] bg-[radial-gradient(circle_at_top,rgba(103,232,249,0.12),transparent_52%),linear-gradient(180deg,rgba(251,191,36,0.06),transparent_38%)]" />
+      <div className="relative z-10 mx-auto flex max-w-[1500px] flex-col gap-4 px-3 py-4 sm:px-5 lg:px-7">
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px]">
-          <div className="overflow-hidden rounded-lg border border-white/10 bg-[#081118]/88 shadow-[0_30px_90px_rgba(0,0,0,0.36)] backdrop-blur">
+          <div className="reveal-fade overflow-hidden rounded-[28px] border border-white/10 bg-[#081118]/88 shadow-[0_30px_90px_rgba(0,0,0,0.36)] backdrop-blur">
             <div className="border-b border-white/10 bg-[linear-gradient(90deg,rgba(103,232,249,0.11),rgba(251,191,36,0.06),transparent)] p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <StatusDot loading={loading} />
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.34em] text-cyan-100">Finance Signal Studio</p>
-                    <h1 className="mt-1 text-2xl font-semibold text-white sm:text-4xl">Market intelligence cockpit</h1>
+                    <h1 className="mt-1 max-w-4xl text-2xl font-semibold tracking-[-0.04em] text-white sm:text-4xl xl:text-5xl">
+                      Market intelligence with the polish of a great product surface
+                    </h1>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -279,7 +352,31 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                 </div>
               </div>
 
-              <p className="mt-4 max-w-4xl text-sm leading-6 text-slate-300 sm:text-base">{liveReadout}</p>
+              <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] xl:items-center">
+                <div>
+                  <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
+                    <div className="overflow-hidden rounded-full border border-cyan-300/25 shadow-[0_0_24px_rgba(34,211,238,0.18)]">
+                      <Image src={studioMark} alt="Finance Signal Studio brand mark" className="h-9 w-9 object-cover" priority />
+                    </div>
+                    <span className="text-[11px] uppercase tracking-[0.28em] text-slate-300">AI Stock Market Intelligence</span>
+                  </div>
+
+                  <p className="mt-4 max-w-4xl text-sm leading-6 text-slate-300 sm:text-base">{liveReadout}</p>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+                    Fast and clear is the baseline. What makes this memorable is the combination of hierarchy, feedback, motion, and restraint.
+                  </p>
+                </div>
+
+                <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black/20 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.28)]">
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.2),transparent_35%)]" />
+                  <Image
+                    src={studioHero}
+                    alt="Finance Signal Studio hero logo artwork"
+                    className="relative h-auto w-full rounded-[18px] object-cover"
+                    priority
+                  />
+                </div>
+              </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard
@@ -483,6 +580,8 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
           </aside>
         </section>
 
+        <WebsiteCraftSection activeTier={activeTier} activeTierId={activeCraftTier} onSelectTier={setActiveCraftTier} />
+
         {(error || invalidDraft) && !displayPrimary ? (
           <NoMatchState query={query} message={error ?? "No supported company matches that lookup."} suggestions={suggestions} onSelect={selectCompany} />
         ) : null}
@@ -578,6 +677,125 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
   );
 }
 
+function WebsiteCraftSection({
+  activeTier,
+  activeTierId,
+  onSelectTier,
+}: {
+  activeTier: (typeof WEBSITE_TIERS)[number];
+  activeTierId: CraftTierId;
+  onSelectTier: (tierId: CraftTierId) => void;
+}) {
+  const ActiveIcon = activeTier.icon;
+
+  return (
+    <section className="reveal-fade reveal-delay-1 grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(380px,0.95fr)]">
+      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,17,24,0.92),rgba(7,13,18,0.88))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-3xl">
+            <p className="text-[10px] uppercase tracking-[0.34em] text-cyan-100">Experience Layers</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl">
+              Click any card above to dive into each element. Here&apos;s the bigger picture.
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-400 sm:text-base">
+              Great websites are rarely defined by one feature. They feel authored because motion, typography, layout, and interaction feedback all reinforce each other.
+            </p>
+          </div>
+          <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs uppercase tracking-[0.24em] text-slate-400">
+            Restraint wins
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 md:grid-cols-3">
+          {WEBSITE_TIERS.map((tier, index) => {
+            const Icon = tier.icon;
+            const isActive = tier.id === activeTierId;
+
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                onClick={() => onSelectTier(tier.id)}
+                className={cn(
+                  "group relative overflow-hidden rounded-[24px] border p-4 text-left transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_45px_rgba(0,0,0,0.24)]",
+                  isActive
+                    ? "border-cyan-300/35 bg-cyan-300/[0.1] shadow-[0_0_0_1px_rgba(103,232,249,0.12)]"
+                    : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]",
+                )}
+              >
+                <div
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute inset-x-0 top-0 h-24 bg-gradient-to-br opacity-80 blur-2xl transition-transform duration-300 group-hover:scale-110",
+                    tier.tone === "cyan"
+                      ? "from-cyan-300/18 to-transparent"
+                      : tier.tone === "amber"
+                        ? "from-amber-300/18 to-transparent"
+                        : "from-white/8 to-transparent",
+                  )}
+                />
+                <div className="relative">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] uppercase tracking-[0.24em] text-slate-400">{tier.eyebrow}</span>
+                    <Icon className={cn("h-4 w-4", isActive ? "text-cyan-100" : "text-slate-500")} />
+                  </div>
+                  <h3 className="mt-4 text-xl font-semibold tracking-[-0.03em] text-white">{tier.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-slate-400">{tier.summary}</p>
+                  <div className="mt-5 flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-slate-500">
+                    <span>0{index + 1}</span>
+                    <span className="h-px flex-1 bg-white/10" />
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <aside className="reveal-fade reveal-delay-2 relative overflow-hidden rounded-[28px] border border-white/10 bg-[#091118]/90 p-5 shadow-[0_26px_80px_rgba(0,0,0,0.32)] backdrop-blur sm:p-6">
+        <div aria-hidden="true" className="absolute right-[-40px] top-[-30px] h-36 w-36 rounded-full bg-cyan-300/10 blur-3xl" />
+        <div className="relative">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.28em] text-amber-100">Active lens</p>
+              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">{activeTier.title}</h3>
+            </div>
+            <span className={cn("grid h-12 w-12 place-items-center rounded-2xl border bg-black/20", getMetricToneClasses(activeTier.tone))}>
+              <ActiveIcon className="h-5 w-5" />
+            </span>
+          </div>
+
+          <p className="mt-4 text-sm leading-6 text-slate-300">{activeTier.principle}</p>
+
+          <div className="mt-5 rounded-[22px] border border-white/10 bg-black/20 p-4">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-slate-500">
+              <Sparkles className="h-4 w-4 text-cyan-200" />
+              What we shipped
+            </div>
+            <div className="mt-4 grid gap-2">
+              {activeTier.features.map((feature) => (
+                <div key={feature} className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-slate-200">
+                  {feature}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <CraftSignalCard icon={Activity} label="Motion" value={activeTier.id === "tier1" ? "Subtle" : activeTier.id === "tier2" ? "Guided" : "Cinematic"} />
+            <CraftSignalCard icon={Volume2} label="Feedback" value={activeTier.id === "tier1" ? "Clear" : activeTier.id === "tier2" ? "Responsive" : "Immersive"} />
+          </div>
+
+          <div className="mt-5 rounded-[22px] border border-amber-300/18 bg-amber-300/[0.07] p-4">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-amber-100">Why it matters</p>
+            <p className="mt-3 text-sm leading-6 text-slate-200">{activeTier.payoff}</p>
+          </div>
+        </div>
+      </aside>
+    </section>
+  );
+}
+
 function StatusDot({ loading }: { loading: boolean }) {
   return (
     <span
@@ -591,10 +809,10 @@ function StatusDot({ loading }: { loading: boolean }) {
 
 function KpiCard({ icon: Icon, label, value, detail, tone }: { icon: LucideIcon; label: string; value: string; detail: string; tone: MetricTone }) {
   return (
-    <div className={cn("min-h-[126px] rounded-lg border p-4", getMetricToneClasses(tone))}>
+    <div className={cn("group min-h-[126px] rounded-[22px] border p-4 transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(0,0,0,0.2)]", getMetricToneClasses(tone))}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-[10px] uppercase tracking-[0.22em] opacity-70">{label}</span>
-        <Icon className="h-4 w-4 opacity-80" />
+        <Icon className="h-4 w-4 opacity-80 transition-transform duration-300 group-hover:scale-110" />
       </div>
       <div className="mt-3 text-2xl font-semibold text-white">{value}</div>
       <div className="mt-2 line-clamp-2 text-xs leading-5 text-slate-300">{detail}</div>
@@ -716,13 +934,25 @@ function BalanceBar({ label, value, tone }: { label: string; value: number; tone
 
 function FeatureCard({ icon: Icon, label, value, detail, tone }: { icon: LucideIcon; label: string; value: string; detail: string; tone: MetricTone }) {
   return (
-    <div className={cn("flex min-h-[126px] flex-col rounded-lg border p-4", getMetricToneClasses(tone))}>
+    <div className={cn("group flex min-h-[126px] flex-col rounded-[22px] border p-4 transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_36px_rgba(0,0,0,0.2)]", getMetricToneClasses(tone))}>
       <div className="flex items-center justify-between gap-3">
         <div className="text-[10px] uppercase leading-tight tracking-[0.2em] opacity-70">{label}</div>
-        <Icon className="h-4 w-4 opacity-80" />
+        <Icon className="h-4 w-4 opacity-80 transition-transform duration-300 group-hover:scale-110" />
       </div>
       <div className="mt-3 text-xl font-semibold text-white">{value}</div>
       <div className="mt-auto pt-2 text-sm leading-snug text-slate-300">{detail}</div>
+    </div>
+  );
+}
+
+function CraftSignalCard({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+  return (
+    <div className="rounded-[20px] border border-white/10 bg-white/[0.04] p-4">
+      <div className="flex items-center justify-between gap-3 text-slate-400">
+        <span className="text-[10px] uppercase tracking-[0.2em]">{label}</span>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="mt-3 text-lg font-semibold text-white">{value}</div>
     </div>
   );
 }
