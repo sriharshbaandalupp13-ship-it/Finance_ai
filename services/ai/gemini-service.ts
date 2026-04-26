@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type {
+  CompanyRelationType,
   CompanyProfile,
   PredictionSnapshot,
   ProcessedSignalItem,
@@ -24,6 +25,22 @@ const PredictionSchema = z.object({
   explanation: z.string(),
   priceChangePct: z.number(),
 });
+
+const RelationInferenceSchema = z.object({
+  relations: z.array(z.object({
+    target: z.string(),
+    relation: z.enum(["competitor", "supplier", "partner", "customer", "manufacturer"]),
+    rationale: z.string(),
+    strength: z.number().min(0).max(1),
+  })).max(5).default([]),
+});
+
+export interface RelationSuggestion {
+  target: string;
+  relation: CompanyRelationType;
+  rationale: string;
+  strength: number;
+}
 
 function average(values: number[]) {
   if (!values.length) return 0;
@@ -182,7 +199,7 @@ async function callGemini(prompt: string) {
 }
 
 export async function processSignalItem(item: RawSourceItem, company: CompanyProfile): Promise<ProcessedSignalItem> {
-  const prompt = `You are processing financial news for ${company.symbol} (${company.name}). Return strict JSON with keys summary, sentiment, financialEvent, impact, explanation, confidence, companyTags. Input title: ${item.title}. Input body: ${item.body}. Allowed sentiment: positive, neutral, negative. Allowed impact: low, medium, high.`;
+  const prompt = `You are processing financial news for ${company.symbol} (${company.name}). Return strict JSON with keys summary, sentiment, financialEvent, impact, explanation, confidence, companyTags. Input title: ${item.title}. Input body: ${item.body}. Allowed sentiment: positive, neutral, negative. Allowed impact: low, medium, high. companyTags must include the primary company symbol and any other companies, brands, suppliers, competitors, customers, or publicly traded entities explicitly mentioned in the article.`;
   const geminiText = await callGemini(prompt);
   if (!geminiText) return heuristics(item);
 
@@ -196,6 +213,65 @@ export async function processSignalItem(item: RawSourceItem, company: CompanyPro
   } catch {
     return heuristics(item);
   }
+}
+
+export async function inferRelatedCompaniesFromSignals(
+  company: CompanyProfile,
+  items: ProcessedSignalItem[],
+): Promise<RelationSuggestion[]> {
+  const candidateTags = [...new Set(
+    items
+      .flatMap((item) => item.companyTags)
+      .map((tag) => tag.trim())
+      .filter((tag) => tag && tag.toUpperCase() !== company.symbol.toUpperCase()),
+  )].slice(0, 12);
+
+  const condensedItems = items.slice(0, 8).map((item, index) => (
+    `${index + 1}. title=${item.title}; summary=${item.summary}; sentiment=${item.sentiment}; event=${item.financialEvent}; tags=${item.companyTags.join(", ")}`
+  )).join("\n");
+
+  const prompt = `You are building a stock chain-reaction map for ${company.symbol} (${company.name}) in the ${company.sector} sector.
+Use the news context below to identify up to 5 other companies that could react to the same catalysts.
+Prefer companies explicitly mentioned in the articles or tags. If a company is clearly implied, you may infer it.
+Return strict JSON with key relations. Each relation must have:
+- target: company name or tradable symbol
+- relation: one of competitor, supplier, partner, customer, manufacturer
+- rationale: one short sentence
+- strength: number from 0 to 1
+Do not return the primary company itself.
+
+Candidate companies from AI tags: ${candidateTags.join(", ") || "none"}.
+News context:
+${condensedItems || "No news context available."}`;
+
+  const geminiText = await callGemini(prompt);
+  if (geminiText) {
+    try {
+      const parsed = RelationInferenceSchema.parse(JSON.parse(geminiText));
+      return parsed.relations.filter((relation) => relation.target.trim());
+    } catch {
+      // Fall through to tag-based fallback.
+    }
+  }
+
+  const tagFrequency = new Map<string, number>();
+  for (const item of items) {
+    for (const tag of item.companyTags) {
+      const normalized = tag.trim();
+      if (!normalized || normalized.toUpperCase() === company.symbol.toUpperCase()) continue;
+      tagFrequency.set(normalized, (tagFrequency.get(normalized) ?? 0) + 1);
+    }
+  }
+
+  return [...tagFrequency.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 4)
+    .map(([target, count]) => ({
+      target,
+      relation: "partner" as CompanyRelationType,
+      rationale: `${target} was mentioned alongside ${company.name} in recent AI-processed coverage.`,
+      strength: Math.min(0.88, Number((0.42 + count * 0.1).toFixed(2))),
+    }));
 }
 
 export async function generatePrediction(

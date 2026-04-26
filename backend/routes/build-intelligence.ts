@@ -12,7 +12,7 @@ import type {
 import { buildAlerts, buildSentimentSnapshot } from "@/backend/engines/sentiment-engine";
 import { buildPrediction } from "@/backend/engines/prediction-engine";
 import { persistSignalItems, persistSnapshot } from "@/backend/repositories/intelligence-repository";
-import { processSignalItem } from "@/services/ai/gemini-service";
+import { inferRelatedCompaniesFromSignals, processSignalItem, type RelationSuggestion } from "@/services/ai/gemini-service";
 import { fetchNewsApiItems } from "@/services/news/newsapi-service";
 import { fetchRssNews } from "@/services/news/rss-service";
 import { fetchRedditMentions } from "@/services/social/reddit-service";
@@ -133,17 +133,42 @@ function buildHeuristicRelations(company: CompanyProfile): CompanyRelation[] {
     });
 }
 
-function getRelations(company: CompanyProfile): CompanyRelation[] {
+function buildGeminiRelations(company: CompanyProfile, suggestions: RelationSuggestion[]): CompanyRelation[] {
+  const seenPeers = new Set<string>();
+
+  return suggestions
+    .map((suggestion) => {
+      const peer = getCompany(suggestion.target);
+      if (peer.symbol === company.symbol) return null;
+      if (seenPeers.has(peer.symbol)) return null;
+      seenPeers.add(peer.symbol);
+
+      return {
+        sourceSymbol: company.symbol,
+        targetSymbol: peer.symbol,
+        relation: suggestion.relation,
+        rationale: suggestion.rationale,
+        strength: suggestion.strength,
+      } satisfies CompanyRelation;
+    })
+    .filter((relation): relation is CompanyRelation => relation !== null);
+}
+
+function getRelations(company: CompanyProfile, suggestions: RelationSuggestion[]): CompanyRelation[] {
   const staticRelations = RELATIONS.filter(
     (relation) => relation.sourceSymbol === company.symbol || relation.targetSymbol === company.symbol,
   );
 
   const staticPeers = new Set(staticRelations.map((relation) => getRelationPeerSymbol(company.symbol, relation)));
-  const heuristicRelations = buildHeuristicRelations(company).filter(
+  const geminiRelations = buildGeminiRelations(company, suggestions).filter(
     (relation) => !staticPeers.has(getRelationPeerSymbol(company.symbol, relation)),
   );
+  const geminiPeers = new Set(geminiRelations.map((relation) => getRelationPeerSymbol(company.symbol, relation)));
+  const heuristicRelations = buildHeuristicRelations(company).filter(
+    (relation) => !staticPeers.has(getRelationPeerSymbol(company.symbol, relation)) && !geminiPeers.has(getRelationPeerSymbol(company.symbol, relation)),
+  );
 
-  return [...staticRelations, ...heuristicRelations].slice(0, 5);
+  return [...staticRelations, ...geminiRelations, ...heuristicRelations].slice(0, 5);
 }
 
 function getRelatedCompanies(company: CompanyProfile, relations: CompanyRelation[]): CompanyProfile[] {
@@ -216,12 +241,16 @@ async function fetchSignalsForCompany(company: CompanyProfile): Promise<Processe
 
 export async function buildCompanyIntelligence(symbol: string): Promise<IntelligenceResponse> {
   const company = getCompany(symbol);
-  const relations = getRelations(company);
-  const relatedCompanies = getRelatedCompanies(company, relations);
-
-  const [processedItems, stock, relatedStocks, relatedSignals] = await Promise.all([
+  const [processedItems, stock] = await Promise.all([
     fetchSignalsForCompany(company),
     fetchStockSnapshot(company.symbol, company.name),
+  ]);
+
+  const relationSuggestions = await inferRelatedCompaniesFromSignals(company, processedItems);
+  const relations = getRelations(company, relationSuggestions);
+  const relatedCompanies = getRelatedCompanies(company, relations);
+
+  const [relatedStocks, relatedSignals] = await Promise.all([
     Promise.all(relatedCompanies.slice(0, 4).map((item) => fetchStockSnapshot(item.symbol, item.name))),
     Promise.all(relatedCompanies.slice(0, 4).map(fetchSignalsForCompany)),
   ]);
