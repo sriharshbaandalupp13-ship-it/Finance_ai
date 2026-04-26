@@ -29,8 +29,8 @@ type RelationNodeData = {
 
 function PipelineNode({ data }: NodeProps<Node<PipelineNodeData>>) {
   return (
-    <div className="min-w-[190px] rounded-xl border border-cyan-300/20 bg-[#0b1220]/95 p-4 shadow-[0_18px_44px_rgba(0,0,0,0.32)] backdrop-blur">
-      <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-200">Workflow</p>
+    <div className="min-w-[190px] rounded-lg border border-cyan-300/20 bg-[#071018]/95 p-4 shadow-[0_18px_44px_rgba(0,0,0,0.32)] backdrop-blur">
+      <p className="text-[10px] uppercase tracking-[0.24em] text-cyan-200">Workflow</p>
       <h4 className="mt-2 text-sm font-semibold text-white">{data.label}</h4>
       <p className="mt-2 text-xs leading-5 text-slate-400">{data.value}</p>
     </div>
@@ -42,12 +42,12 @@ function RelationNode({ data, selected }: NodeProps<Node<RelationNodeData>>) {
 
   return (
     <div
-      className={`min-w-[190px] rounded-3xl border px-5 py-4 shadow-[0_20px_45px_rgba(15,23,42,0.12)] transition ${
+      className={`min-w-[190px] rounded-lg border px-5 py-4 shadow-[0_20px_45px_rgba(0,0,0,0.22)] transition ${
         isCenter
-          ? "border-emerald-300/35 bg-emerald-300/14 text-emerald-50"
+          ? "border-emerald-300/35 bg-emerald-300/12 text-emerald-50"
           : selected
-            ? "border-cyan-300/45 bg-cyan-300/14 text-white"
-            : "border-white/10 bg-[#0b1220]/95 text-slate-100"
+            ? "border-cyan-300/45 bg-cyan-300/12 text-white"
+            : "border-white/10 bg-[#071018]/95 text-slate-100"
       }`}
     >
       <div className="text-sm font-semibold">{data.label}</div>
@@ -188,16 +188,16 @@ export function WorkflowCanvas({
   }, [relations, selectedRelationId, symbol]);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-      <section className="rounded-2xl border border-white/10 bg-[#0d141f]/90 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur">
+    <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+      <section className="rounded-lg border border-white/10 bg-[#081118]/86 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur">
         <div className="mb-4">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-cyan-200">Interactive workflow</p>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-100">Interactive workflow</p>
           <h3 className="mt-2 text-xl font-semibold text-white">News to prediction pipeline</h3>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
             Follow how signals turn into a next-day call, from news volume through sentiment and final price direction.
           </p>
         </div>
-        <div className="h-[360px] overflow-hidden rounded-xl border border-cyan-300/14 bg-[linear-gradient(180deg,rgba(2,6,23,0.74),rgba(15,23,42,0.88))]">
+        <div className="h-[360px] overflow-hidden rounded-lg border border-cyan-300/14 bg-[linear-gradient(180deg,rgba(5,13,18,0.9),rgba(12,20,27,0.9))]">
           <ReactFlow
             nodes={workflowNodes}
             edges={workflowEdges}
@@ -216,23 +216,23 @@ export function WorkflowCanvas({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-[#0d141f]/90 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur">
+      <section className="rounded-lg border border-white/10 bg-[#081118]/86 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-emerald-200">Company relationship graph</p>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-emerald-100">Company relationship graph</p>
             <h3 className="mt-2 text-xl font-semibold text-white">Chain-reaction explorer</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               Click a related company to inspect how catalysts could ripple through suppliers, competitors, and partners.
             </p>
           </div>
-          <div className="rounded-xl border border-emerald-300/18 bg-emerald-300/[0.06] px-4 py-3 text-right">
-            <div className="text-[10px] uppercase tracking-[0.24em] text-emerald-200">Tomorrow target</div>
+          <div className="rounded-lg border border-emerald-300/18 bg-emerald-300/[0.06] px-4 py-3 text-right">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-emerald-200">Tomorrow target</div>
             <div className="mt-1 text-lg font-bold text-white">INR {priceTarget.toFixed(2)}</div>
           </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1fr_250px]">
-          <div className="h-[380px] overflow-hidden rounded-xl border border-emerald-300/14 bg-[linear-gradient(180deg,rgba(2,6,23,0.74),rgba(15,23,42,0.88))]">
+          <div className="h-[380px] overflow-hidden rounded-lg border border-emerald-300/14 bg-[linear-gradient(180deg,rgba(5,13,18,0.9),rgba(12,20,27,0.9))]">
             <ReactFlow
               nodes={relationNodes}
               edges={relationEdges}
@@ -249,8 +249,8 @@ export function WorkflowCanvas({
             </ReactFlow>
           </div>
 
-          <aside className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Selected link</div>
+          <aside className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">Selected link</div>
             {selectedRelation ? (
               <>
                 <h4 className="mt-3 text-lg font-semibold text-white">
@@ -262,15 +262,15 @@ export function WorkflowCanvas({
                 <p className="mt-3 text-sm leading-6 text-slate-400">
                   {selectedRelation.rationale}
                 </p>
-                <div className="mt-4 rounded-xl border border-white/10 bg-black/18 p-3">
-                  <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Connection strength</div>
+                <div className="mt-4 rounded-lg border border-white/10 bg-black/18 p-3">
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">Connection strength</div>
                   <div className="mt-2 text-xl font-bold text-white">
                     {Math.round(selectedRelation.strength * 100)}%
                   </div>
                 </div>
               </>
             ) : (
-              <div className="mt-4 rounded-xl border border-dashed border-white/15 bg-black/18 p-4 text-sm leading-6 text-slate-400">
+              <div className="mt-4 rounded-lg border border-dashed border-white/15 bg-black/18 p-4 text-sm leading-6 text-slate-400">
                 No related companies were found for this symbol yet. Try another company or expand the watchlist mappings.
               </div>
             )}

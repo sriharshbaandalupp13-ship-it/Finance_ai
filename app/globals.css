@@ -2,6 +2,15 @@
 
 :root {
   color-scheme: dark;
+  --bg-base: #060d12;
+  --bg-panel: rgba(9, 17, 24, 0.78);
+  --line-soft: rgba(203, 213, 225, 0.12);
+  --text-primary: #e9eef5;
+  --text-muted: #95a3b4;
+  --accent-cyan: #67e8f9;
+  --accent-emerald: #86efac;
+  --accent-amber: #fbbf24;
+  --accent-rose: #fb7185;
 }
 
 html,
@@ -9,15 +18,58 @@ body {
   min-height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
-  background: #070b11;
-  color: #e2e8f0;
+  overflow-x: hidden;
+  font-family: var(--font-display), "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.11), transparent 30%),
+    radial-gradient(circle at 84% 12%, rgba(245, 158, 11, 0.08), transparent 22%),
+    linear-gradient(180deg, #060d12 0%, #08131c 50%, #05090d 100%);
+  color: var(--text-primary);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.016) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.76), transparent 88%);
 }
 
 * {
   box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono), "Cascadia Code", Consolas, monospace;
 }
 
 ::selection {
@@ -31,15 +83,15 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #070b11;
+  background: #060d12;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #263244;
-  border: 2px solid #070b11;
+  background: #2b3b45;
+  border: 2px solid #060d12;
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b4a61;
+  background: #425466;
 }

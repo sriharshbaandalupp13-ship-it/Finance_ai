@@ -53,6 +53,16 @@ const COMPANY_ALIASES: Record<string, string> = {
   ADANI: "ADANIENT.BSE",
   ADANIENT: "ADANIENT.BSE",
   ADANIENTERPRISES: "ADANIENT.BSE",
+  RELIANCE: "RELIANCE.BSE",
+  HDFC: "HDFCBANK.BSE",
+  HDFCBANK: "HDFCBANK.BSE",
+  INFOSYS: "INFY.BSE",
+  ICICI: "ICICIBANK.BSE",
+  ICICIBANK: "ICICIBANK.BSE",
+  SBI: "SBIN.BSE",
+  STATEBANK: "SBIN.BSE",
+  AIRTEL: "BHARTIARTL.BSE",
+  BHARTI: "BHARTIARTL.BSE",
   ADANIPORT: "ADANIPORTS.BSE",
   ADANIPORTS: "ADANIPORTS.BSE",
   APSEZ: "ADANIPORTS.BSE",
@@ -85,6 +95,21 @@ function scoreCompanyMatch(company: CompanyProfile, normalized: string) {
   return 0;
 }
 
+type RankedCompanyMatch = {
+  company: CompanyProfile;
+  score: number;
+};
+
+function rankCompanyMatches(query: string): RankedCompanyMatch[] {
+  const normalized = normalizeLookupValue(query);
+  if (!normalized) return [];
+
+  return WATCHLIST
+    .map((company) => ({ company, score: scoreCompanyMatch(company, normalized) }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score || left.company.name.localeCompare(right.company.name));
+}
+
 export function searchCompanies(query: string, limit = 5): CompanyProfile[] {
   const normalized = normalizeLookupValue(query);
   if (!normalized) return [];
@@ -94,16 +119,34 @@ export function searchCompanies(query: string, limit = 5): CompanyProfile[] {
     ? WATCHLIST.find((company) => company.symbol === aliasSymbol) ?? null
     : null;
 
-  const rankedMatches = WATCHLIST
-    .map((company) => ({ company, score: scoreCompanyMatch(company, normalized) }))
-    .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score || left.company.name.localeCompare(right.company.name))
-    .map((entry) => entry.company);
+  const rankedMatches = rankCompanyMatches(query).map((entry) => entry.company);
 
   const merged = aliasMatch ? [aliasMatch, ...rankedMatches.filter((company) => company.symbol !== aliasMatch.symbol)] : rankedMatches;
   return merged.slice(0, limit);
 }
 
 export function resolveCompanyQuery(query: string): CompanyProfile | null {
-  return searchCompanies(query, 1)[0] ?? null;
+  const normalized = normalizeLookupValue(query);
+  if (!normalized) return null;
+
+  const aliasSymbol = COMPANY_ALIASES[normalized];
+  if (aliasSymbol) {
+    return WATCHLIST.find((company) => company.symbol === aliasSymbol) ?? null;
+  }
+
+  const [best, second] = rankCompanyMatches(query);
+  if (!best) return null;
+
+  if (best.score >= 110) return best.company;
+  if (normalized.length <= 2) return null;
+
+  const hasClearLead = !second || best.score - second.score >= 10;
+  const isStrongPrefixMatch = best.score >= 88;
+  const isVeryStrongSingleMatch = best.score >= 92;
+
+  if (isVeryStrongSingleMatch || (isStrongPrefixMatch && hasClearLead)) {
+    return best.company;
+  }
+
+  return null;
 }
