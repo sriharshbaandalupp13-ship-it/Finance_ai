@@ -39,25 +39,41 @@ const COMPANY_ALIASES: Record<string, string> = {
   TATASTEEL: "TATASTEEL.BSE",
 };
 
-export function resolveCompanyQuery(query: string): CompanyProfile | null {
+function scoreCompanyMatch(company: CompanyProfile, normalized: string) {
+  const normalizedSymbol = normalizeLookupValue(company.symbol);
+  const normalizedName = normalizeLookupValue(company.name);
+  const symbolWithoutSuffix = normalizedSymbol.replace(/(BSE|NSE)$/g, "");
+
+  if (normalized === normalizedSymbol) return 120;
+  if (normalized === normalizedName) return 115;
+  if (normalized === symbolWithoutSuffix) return 110;
+  if (normalizedSymbol.startsWith(normalized)) return 92;
+  if (normalizedName.startsWith(normalized)) return 88;
+  if (symbolWithoutSuffix.startsWith(normalized)) return 84;
+  if (normalizedName.includes(normalized)) return 64;
+  if (normalizedSymbol.includes(normalized)) return 58;
+  return 0;
+}
+
+export function searchCompanies(query: string, limit = 5): CompanyProfile[] {
   const normalized = normalizeLookupValue(query);
-  if (!normalized) return null;
+  if (!normalized) return [];
 
   const aliasSymbol = COMPANY_ALIASES[normalized];
-  if (aliasSymbol) {
-    return WATCHLIST.find((company) => company.symbol === aliasSymbol) ?? null;
-  }
+  const aliasMatch = aliasSymbol
+    ? WATCHLIST.find((company) => company.symbol === aliasSymbol) ?? null
+    : null;
 
-  return WATCHLIST.find((company) => {
-    const normalizedSymbol = normalizeLookupValue(company.symbol);
-    const normalizedName = normalizeLookupValue(company.name);
-    const symbolWithoutSuffix = normalizedSymbol.replace(/(BSE|NSE)$/g, "");
+  const rankedMatches = WATCHLIST
+    .map((company) => ({ company, score: scoreCompanyMatch(company, normalized) }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score || left.company.name.localeCompare(right.company.name))
+    .map((entry) => entry.company);
 
-    return (
-      normalized === normalizedSymbol ||
-      normalized === normalizedName ||
-      normalized === symbolWithoutSuffix ||
-      normalizedName.includes(normalized)
-    );
-  }) ?? null;
+  const merged = aliasMatch ? [aliasMatch, ...rankedMatches.filter((company) => company.symbol !== aliasMatch.symbol)] : rankedMatches;
+  return merged.slice(0, limit);
+}
+
+export function resolveCompanyQuery(query: string): CompanyProfile | null {
+  return searchCompanies(query, 1)[0] ?? null;
 }

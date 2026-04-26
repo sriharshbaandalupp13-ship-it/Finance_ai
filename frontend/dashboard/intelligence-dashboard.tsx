@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { IntelligenceResponse } from "@/data/contracts";
-import { resolveCompanyQuery } from "@/data/watchlist";
+import { resolveCompanyQuery, searchCompanies } from "@/data/watchlist";
 import { InsightPanels } from "@/components/insight-panels";
 import { StockChartCard } from "@/components/stock-chart-card";
 import { WorkflowCanvas } from "@/frontend/workflow/workflow-canvas";
@@ -28,6 +28,7 @@ function getPredictionLabel(direction: string, confidence: number, priceChange: 
 export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { initialSymbol?: string }) {
   const [query, setQuery] = useState(initialSymbol);
   const [symbol, setSymbol] = useState(initialSymbol);
+  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
   const [data, setData] = useState<IntelligenceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +60,12 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
   const primary = data?.primary;
   const mentionMeter = useMemo(() => (primary ? Math.min(100, primary.sentiment.mentionVolume * 7) : 0), [primary]);
   const resolvedSelection = useMemo(() => resolveCompanyQuery(query), [query]);
+  const suggestions = useMemo(() => searchCompanies(query, 6), [query]);
 
-  function selectResolvedCompany() {
-    if (!resolvedSelection) return;
-    setQuery(resolvedSelection.name.toUpperCase());
-    setSymbol(resolvedSelection.symbol);
+  function selectCompany(nextSymbol: string, nextName: string) {
+    setQuery(nextName.toUpperCase());
+    setSymbol(nextSymbol);
+    setIsSuggestionOpen(false);
   }
 
   return (
@@ -91,6 +93,7 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                 className="space-y-4"
                 onSubmit={(event) => {
                   event.preventDefault();
+                  setIsSuggestionOpen(false);
                   setSymbol(resolvedSelection?.symbol ?? (query.trim().toUpperCase() || "RELIANCE.BSE"));
                 }}
               >
@@ -98,14 +101,43 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                   <label htmlFor="symbol" className="text-[11px] uppercase tracking-[0.35em] text-sky-600">
                     Lookup company or symbol
                   </label>
-                  <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                  <div className="relative mt-3 flex flex-col gap-3 sm:flex-row">
                     <input
                       id="symbol"
                       value={query}
-                      onChange={(event) => setQuery(event.target.value.toUpperCase())}
+                      onChange={(event) => {
+                        setQuery(event.target.value.toUpperCase());
+                        setIsSuggestionOpen(true);
+                      }}
+                      onFocus={() => setIsSuggestionOpen(true)}
+                      onBlur={() => {
+                        window.setTimeout(() => setIsSuggestionOpen(false), 120);
+                      }}
                       className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                       placeholder="TATA MOTORS or RELIANCE.BSE"
+                      autoComplete="off"
                     />
+                    {query.trim() && isSuggestionOpen && suggestions.length ? (
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_rgba(148,163,184,0.18)]">
+                        {suggestions.map((company) => (
+                          <button
+                            key={company.symbol}
+                            type="button"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              selectCompany(company.symbol, company.name);
+                            }}
+                            className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-sky-50 last:border-b-0"
+                          >
+                            <div>
+                              <div className="text-sm font-semibold text-slate-900">{company.name}</div>
+                              <div className="mt-1 text-xs text-slate-500">{company.sector} · {company.exchange}</div>
+                            </div>
+                            <div className="text-xs font-semibold text-sky-700">{company.symbol}</div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     <button className="rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-500" type="submit">
                       Analyse
                     </button>
@@ -114,7 +146,7 @@ export function IntelligenceDashboard({ initialSymbol = "RELIANCE.BSE" }: { init
                 {query.trim() && resolvedSelection ? (
                   <button
                     type="button"
-                    onClick={selectResolvedCompany}
+                    onClick={() => selectCompany(resolvedSelection.symbol, resolvedSelection.name)}
                     className="inline-flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-left text-xs text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
                   >
                     <span className="uppercase tracking-[0.22em] text-sky-500">Matched</span>
